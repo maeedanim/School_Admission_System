@@ -6,10 +6,12 @@ using SchoolAdmission.BLL.Services;
 using SchoolAdmission.DAL.Data;
 using SchoolAdmission.DAL.Repositories;
 using SchoolAdmission.API.Middleware;
+using Microsoft.OpenApi;
+using SchoolAdmission.API.Swagger;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Register controllers
+// Register controllers and configure validation responses.
 builder.Services.AddControllers()
     .ConfigureApiBehaviorOptions(options =>
     {
@@ -34,28 +36,66 @@ builder.Services.AddControllers()
         };
     });
 
-// Read the database connection string
+// Register Swagger services.
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("StudentId", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.ApiKey,
+        Name = "X-Student-Id",
+        In = ParameterLocation.Header,
+        Description = "Enter your 17-digit student birth registration number."
+    });
+
+    options.OperationFilter<StudentIdHeaderOperationFilter>();
+});
+
+// Configure CORS for the frontend.
+var frontendOrigin = builder.Configuration["FRONTEND_ORIGIN"]
+    ?? "http://localhost:5173";
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("Frontend", policy =>
+    {
+        policy
+            .WithOrigins(frontendOrigin)
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
+// Read the database connection string.
 var connectionString = builder.Configuration
     .GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException(
         "Database connection string 'DefaultConnection' is not configured.");
 
-// Register PostgreSQL DbContext
+// Register PostgreSQL DbContext.
 builder.Services.AddDbContext<SchoolAdmissionDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-// Register repositories
+// Register repositories.
 builder.Services.AddScoped<IAdmissionRepository, AdmissionRepository>();
 
-// Register business services
+// Register business services.
 builder.Services.AddScoped<IAdmissionService, AdmissionService>();
 
 var app = builder.Build();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-// Configure HTTP request pipeline
+// Enable Swagger only in Development.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+// Configure HTTP request pipeline.
 app.UseHttpsRedirection();
+
+app.UseCors("Frontend");
 
 app.UseAuthorization();
 
