@@ -299,6 +299,7 @@ public class AdmissionRepository : IAdmissionRepository
         var hold = await _context.Holds
             .FromSqlInterpolated(
                 $"SELECT * FROM holds WHERE id = {holdId} FOR UPDATE")
+            .AsNoTracking()
             .SingleOrDefaultAsync(cancellationToken);
 
         if (hold is null)
@@ -336,14 +337,14 @@ public class AdmissionRepository : IAdmissionRepository
         // Confirm only if the hold is still active.
         int updatedRows = await _context.Database.ExecuteSqlInterpolatedAsync(
             $"""
-            UPDATE holds
-            SET status = 'CONFIRMED',
-                confirmed_at = clock_timestamp()
-            WHERE id = {holdId}
-              AND student_id = {studentId}
-              AND status = 'HELD'
-              AND expires_at > clock_timestamp()
-            """,
+         UPDATE holds
+         SET status = 'CONFIRMED',
+             confirmed_at = clock_timestamp()
+         WHERE id = {holdId}
+           AND student_id = {studentId}
+           AND status = 'HELD'
+           AND expires_at > clock_timestamp()
+         """,
             cancellationToken);
 
         if (updatedRows == 1)
@@ -353,20 +354,24 @@ public class AdmissionRepository : IAdmissionRepository
         }
 
         // Persist expiration if the hold expired during processing.
-        await _context.Database.ExecuteSqlInterpolatedAsync(
+        int expiredRows = await _context.Database.ExecuteSqlInterpolatedAsync(
             $"""
-            UPDATE holds
-            SET status = 'EXPIRED'
-            WHERE id = {holdId}
-              AND status = 'HELD'
-              AND expires_at <= clock_timestamp()
-            """,
+         UPDATE holds
+         SET status = 'EXPIRED'
+         WHERE id = {holdId}
+           AND status = 'HELD'
+           AND expires_at <= clock_timestamp()
+         """,
             cancellationToken);
 
         await transaction.CommitAsync(cancellationToken);
 
-        return HoldConfirmationStatus.NotActive;
+        // Distinguish an expired hold from another inactive state.
+        return expiredRows == 1
+            ? HoldConfirmationStatus.Expired
+            : HoldConfirmationStatus.NotActive;
     }
+
 
     // Hold cancellation
 
@@ -406,6 +411,7 @@ public class AdmissionRepository : IAdmissionRepository
         var hold = await _context.Holds
             .FromSqlInterpolated(
                 $"SELECT * FROM holds WHERE id = {holdId} FOR UPDATE")
+            .AsNoTracking()
             .SingleOrDefaultAsync(cancellationToken);
 
         if (hold is null)
