@@ -1,0 +1,26 @@
+
+# Git
+.git
+.gitignore
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# .NET build output
+**/bin/
+**/obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Frontend dependencies and build output
+frontend/**/node_modules/
+frontend/**/dist/
+
+# Temporary files
+*.log
+.DS_Store

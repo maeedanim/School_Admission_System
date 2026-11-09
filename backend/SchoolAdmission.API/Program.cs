@@ -83,6 +83,15 @@ builder.Services.AddScoped<IAdmissionService, AdmissionService>();
 
 var app = builder.Build();
 
+// Apply pending database migrations at startup.
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider
+        .GetRequiredService<SchoolAdmissionDbContext>();
+
+    dbContext.Database.Migrate();
+}
+
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 // Enable Swagger only in Development.
@@ -98,6 +107,11 @@ app.UseHttpsRedirection();
 app.UseCors("Frontend");
 
 app.UseAuthorization();
+
+app.MapGet("/health", () => Results.Ok(new
+{
+    status = "Healthy"
+}));
 
 app.MapControllers();
 
