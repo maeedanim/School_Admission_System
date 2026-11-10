@@ -13,9 +13,13 @@ namespace SchoolAdmission.DAL.Repositories;
 public class IdentityRepository : IIdentityRepository
 {
     private const string StudentRole = "Student";
+    private const string AdminRole = "Admin";
 
     private const string BirthRegistrationNumberConstraint =
         "IX_AspNetUsers_BirthRegistrationNumber";
+
+    private const string DuplicateBirthRegistrationNumberMessage =
+        "An account with this birth registration number already exists.";
 
     private readonly SchoolAdmissionDbContext _context;
     private readonly UserManager<ApplicationUser> _userManager;
@@ -31,6 +35,8 @@ public class IdentityRepository : IIdentityRepository
         _signInManager = signInManager;
     }
 
+    // User lookup
+
     public async Task<AuthUserData?> FindByEmailAsync(
         string email,
         CancellationToken cancellationToken = default)
@@ -42,19 +48,6 @@ public class IdentityRepository : IIdentityRepository
         return user is null
             ? null
             : await MapUserAsync(user);
-    }
-
-    public async Task<bool> BirthRegistrationNumberExistsAsync(
-        string birthRegistrationNumber,
-        CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        return await _context.Users
-            .AsNoTracking()
-            .AnyAsync(
-                user => user.BirthRegistrationNumber == birthRegistrationNumber,
-                cancellationToken);
     }
 
     public async Task<AuthUserData?> FindByIdAsync(
@@ -70,12 +63,62 @@ public class IdentityRepository : IIdentityRepository
             : await MapUserAsync(user);
     }
 
+    // Registration number validation
+
+    public async Task<bool> BirthRegistrationNumberExistsAsync(
+        string birthRegistrationNumber,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Users
+            .AsNoTracking()
+            .AnyAsync(
+                user => user.BirthRegistrationNumber == birthRegistrationNumber,
+                cancellationToken);
+    }
+
+    // Account creation
+
     public async Task<IdentityOperationResult> CreateStudentAsync(
         string fullName,
         string email,
         string password,
         string birthRegistrationNumber,
         CancellationToken cancellationToken = default)
+    {
+        return await CreateUserAsync(
+            fullName,
+            email,
+            password,
+            StudentRole,
+            birthRegistrationNumber,
+            emailConfirmed: false,
+            cancellationToken);
+    }
+
+    public async Task<IdentityOperationResult> CreateAdminAsync(
+        string fullName,
+        string email,
+        string password,
+        CancellationToken cancellationToken = default)
+    {
+        return await CreateUserAsync(
+            fullName,
+            email,
+            password,
+            AdminRole,
+            birthRegistrationNumber: null,
+            emailConfirmed: true,
+            cancellationToken);
+    }
+
+    private async Task<IdentityOperationResult> CreateUserAsync(
+        string fullName,
+        string email,
+        string password,
+        string role,
+        string? birthRegistrationNumber,
+        bool emailConfirmed,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -89,7 +132,7 @@ public class IdentityRepository : IIdentityRepository
             FullName = fullName,
             BirthRegistrationNumber = birthRegistrationNumber,
             IsActive = true,
-            EmailConfirmed = false,
+            EmailConfirmed = emailConfirmed,
             CreatedAtUtc = DateTime.UtcNow
         };
 
@@ -110,7 +153,7 @@ public class IdentityRepository : IIdentityRepository
                 BirthRegistrationNumberAlreadyExists = true,
                 Errors = new[]
                 {
-                    "An account with this birth registration number already exists."
+                    DuplicateBirthRegistrationNumberMessage
                 }
             };
         }
@@ -128,8 +171,7 @@ public class IdentityRepository : IIdentityRepository
             };
         }
 
-        var roleResult =
-            await _userManager.AddToRoleAsync(user, StudentRole);
+        var roleResult = await _userManager.AddToRoleAsync(user, role);
 
         if (!roleResult.Succeeded)
         {
@@ -153,6 +195,8 @@ public class IdentityRepository : IIdentityRepository
         };
     }
 
+    // Authentication
+
     public async Task<AuthenticationAttemptResult> AuthenticateAsync(
         string email,
         string password,
@@ -165,10 +209,8 @@ public class IdentityRepository : IIdentityRepository
 
         if (user is null)
         {
-            return new AuthenticationAttemptResult
-            {
-                Status = AuthenticationAttemptStatus.InvalidCredentials
-            };
+            return AuthenticationFailure(
+                AuthenticationAttemptStatus.InvalidCredentials);
         }
 
         var signInResult =
@@ -179,26 +221,20 @@ public class IdentityRepository : IIdentityRepository
 
         if (signInResult.IsLockedOut)
         {
-            return new AuthenticationAttemptResult
-            {
-                Status = AuthenticationAttemptStatus.AccountLocked
-            };
+            return AuthenticationFailure(
+                AuthenticationAttemptStatus.AccountLocked);
         }
 
         if (!signInResult.Succeeded)
         {
-            return new AuthenticationAttemptResult
-            {
-                Status = AuthenticationAttemptStatus.InvalidCredentials
-            };
+            return AuthenticationFailure(
+                AuthenticationAttemptStatus.InvalidCredentials);
         }
 
         if (!user.IsActive)
         {
-            return new AuthenticationAttemptResult
-            {
-                Status = AuthenticationAttemptStatus.AccountInactive
-            };
+            return AuthenticationFailure(
+                AuthenticationAttemptStatus.AccountInactive);
         }
 
         var hasRequiredRole =
@@ -206,10 +242,8 @@ public class IdentityRepository : IIdentityRepository
 
         if (!hasRequiredRole)
         {
-            return new AuthenticationAttemptResult
-            {
-                Status = AuthenticationAttemptStatus.RoleMismatch
-            };
+            return AuthenticationFailure(
+                AuthenticationAttemptStatus.RoleMismatch);
         }
 
         return new AuthenticationAttemptResult
@@ -218,6 +252,17 @@ public class IdentityRepository : IIdentityRepository
             User = await MapUserAsync(user)
         };
     }
+
+    private static AuthenticationAttemptResult AuthenticationFailure(
+        AuthenticationAttemptStatus status)
+    {
+        return new AuthenticationAttemptResult
+        {
+            Status = status
+        };
+    }
+
+    // User mapping
 
     private async Task<AuthUserData> MapUserAsync(
         ApplicationUser user)
@@ -234,6 +279,8 @@ public class IdentityRepository : IIdentityRepository
             Roles = roles.ToArray()
         };
     }
+
+    // Database constraint handling
 
     private static bool IsDuplicateBirthRegistrationNumber(
         DbUpdateException exception)

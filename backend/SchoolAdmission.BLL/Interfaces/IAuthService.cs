@@ -17,6 +17,11 @@ public interface IAuthService
         string password,
         CancellationToken cancellationToken = default);
 
+    Task<AuthSessionResult> LoginAdminAsync(
+        string email,
+        string password,
+        CancellationToken cancellationToken = default);
+
     Task<AuthSessionResult> RefreshSessionAsync(
         string refreshToken,
         CancellationToken cancellationToken = default);

@@ -18,7 +18,11 @@ using SchoolAdmission.DAL.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Register controllers and configure validation responses.
+// --------------------------------------------------
+// Service Configuration
+// --------------------------------------------------
+
+// Controllers and validation responses.
 builder.Services.AddControllers()
     .ConfigureApiBehaviorOptions(options =>
     {
@@ -36,14 +40,13 @@ builder.Services.AddControllers()
             problem.Extensions["code"] = "VALIDATION_ERROR";
 
             var result = new BadRequestObjectResult(problem);
-
             result.ContentTypes.Add("application/problem+json");
 
             return result;
         };
     });
 
-// Register Swagger services with JWT Bearer authentication.
+// Swagger and JWT Bearer authentication.
 builder.Services.AddSwaggerGen(options =>
 {
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -56,13 +59,14 @@ builder.Services.AddSwaggerGen(options =>
         Description = "Enter your JWT access token."
     });
 
-    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
-    {
-        [new OpenApiSecuritySchemeReference("Bearer", document)] = []
-    });
+    options.AddSecurityRequirement(document =>
+        new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecuritySchemeReference("Bearer", document)] = []
+        });
 });
 
-// Configure CORS for the frontend.
+// CORS.
 var frontendOrigin = builder.Configuration["FRONTEND_ORIGIN"]
     ?? "http://localhost:5173";
 
@@ -78,31 +82,33 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Read the database connection string.
+// --------------------------------------------------
+// Database Configuration
+// --------------------------------------------------
+
 var connectionString = builder.Configuration
     .GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException(
         "Database connection string 'DefaultConnection' is not configured.");
 
-// Register PostgreSQL DbContext.
 builder.Services.AddDbContext<SchoolAdmissionDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-// Configure ASP.NET Core Identity.
+// --------------------------------------------------
+// ASP.NET Core Identity
+// --------------------------------------------------
+
 builder.Services
     .AddIdentityCore<ApplicationUser>(options =>
     {
-        // User settings.
         options.User.RequireUniqueEmail = true;
 
-        // Password requirements.
         options.Password.RequiredLength = 8;
         options.Password.RequireDigit = true;
         options.Password.RequireLowercase = true;
         options.Password.RequireUppercase = true;
         options.Password.RequireNonAlphanumeric = false;
 
-        // Account lockout.
         options.Lockout.MaxFailedAccessAttempts = 5;
         options.Lockout.DefaultLockoutTimeSpan =
             TimeSpan.FromMinutes(10);
@@ -113,7 +119,10 @@ builder.Services
     .AddSignInManager()
     .AddDefaultTokenProviders();
 
-// Configure JWT authentication.
+// --------------------------------------------------
+// JWT Authentication
+// --------------------------------------------------
+
 var jwtSecret = builder.Configuration["Jwt:Secret"]
     ?? throw new InvalidOperationException(
         "JWT secret is not configured.");
@@ -176,33 +185,92 @@ builder.Services
         };
     });
 
-// Configure authorization.
 builder.Services.AddAuthorization();
 
-// Register authentication infrastructure.
+// --------------------------------------------------
+// Dependency Injection
+// --------------------------------------------------
+
+// Authentication infrastructure.
 builder.Services.AddScoped<IAccessTokenGenerator, JwtTokenService>();
 builder.Services.AddScoped<AuthCookieService>();
 
-// Register repositories.
+// Repositories.
 builder.Services.AddScoped<IAdmissionRepository, AdmissionRepository>();
 builder.Services.AddScoped<IIdentityRepository, IdentityRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 
-// Register business services.
+// Business services.
 builder.Services.AddScoped<IAdmissionService, AdmissionService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
+// --------------------------------------------------
+// Application Initialization
+// --------------------------------------------------
+
 var app = builder.Build();
 
-// Apply pending database migrations and seed application roles.
-using (var scope = app.Services.CreateScope())
+await InitializeDatabaseAsync(
+    app.Services,
+    builder.Configuration);
+
+// --------------------------------------------------
+// HTTP Request Pipeline
+// --------------------------------------------------
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+
+if (app.Environment.IsDevelopment())
 {
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+
+app.UseCors("Frontend");
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapGet("/health", () => Results.Ok(new
+{
+    status = "Healthy"
+}));
+
+app.MapControllers();
+
+app.Run();
+
+// --------------------------------------------------
+// Initialization Methods
+// --------------------------------------------------
+
+static async Task InitializeDatabaseAsync(
+    IServiceProvider services,
+    IConfiguration configuration)
+{
+    await using var scope = services.CreateAsyncScope();
+
     var dbContext = scope.ServiceProvider
         .GetRequiredService<SchoolAdmissionDbContext>();
 
     await dbContext.Database.MigrateAsync();
 
-    var roleManager = scope.ServiceProvider
+    await SeedRolesAsync(scope.ServiceProvider);
+
+    await BootstrapAdminAsync(
+        scope.ServiceProvider,
+        configuration);
+}
+
+// --------------------------------------------------
+// Role Seeding
+// --------------------------------------------------
+
+static async Task SeedRolesAsync(IServiceProvider services)
+{
+    var roleManager = services
         .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
 
     var requiredRoles = new[] { "Student", "Admin" };
@@ -229,29 +297,71 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-app.UseMiddleware<ExceptionHandlingMiddleware>();
+// --------------------------------------------------
+// Admin Bootstrap
+// --------------------------------------------------
 
-// Enable Swagger only in Development.
-if (app.Environment.IsDevelopment())
+static async Task BootstrapAdminAsync(
+    IServiceProvider services,
+    IConfiguration configuration)
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    var adminFullName = configuration["AdminBootstrap:FullName"];
+    var adminEmail = configuration["AdminBootstrap:Email"];
+    var adminPassword = configuration["AdminBootstrap:Password"];
+
+    var bootstrapValues = new[]
+    {
+        adminFullName,
+        adminEmail,
+        adminPassword
+    };
+
+    var hasBootstrapConfiguration = bootstrapValues.Any(
+        value => !string.IsNullOrWhiteSpace(value));
+
+    if (!hasBootstrapConfiguration)
+    {
+        return;
+    }
+
+    if (bootstrapValues.Any(string.IsNullOrWhiteSpace))
+    {
+        throw new InvalidOperationException(
+            "Admin bootstrap configuration is incomplete. " +
+            "FullName, Email, and Password must all be provided.");
+    }
+
+    adminFullName = adminFullName!.Trim();
+    adminEmail = adminEmail!.Trim();
+
+    var identityRepository = services
+        .GetRequiredService<IIdentityRepository>();
+
+    var existingUser = await identityRepository.FindByEmailAsync(
+        adminEmail);
+
+    if (existingUser is not null)
+    {
+        if (!existingUser.Roles.Contains("Admin"))
+        {
+            throw new InvalidOperationException(
+                "The configured Admin email belongs to an account " +
+                "without the Admin role.");
+        }
+
+        return;
+    }
+
+    var result = await identityRepository.CreateAdminAsync(
+        adminFullName,
+        adminEmail,
+        adminPassword!);
+
+    if (!result.Succeeded)
+    {
+        var errors = string.Join("; ", result.Errors);
+
+        throw new InvalidOperationException(
+            $"Failed to provision the Admin account: {errors}");
+    }
 }
-
-// Configure HTTP request pipeline.
-app.UseHttpsRedirection();
-
-app.UseCors("Frontend");
-
-app.UseAuthentication();
-
-app.UseAuthorization();
-
-app.MapGet("/health", () => Results.Ok(new
-{
-    status = "Healthy"
-}));
-
-app.MapControllers();
-
-app.Run();

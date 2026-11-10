@@ -1,5 +1,7 @@
 ﻿
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+
 using SchoolAdmission.BLL.DTOs.Requests;
 using SchoolAdmission.BLL.Interfaces;
 
@@ -7,8 +9,11 @@ namespace SchoolAdmission.API.Controllers;
 
 [ApiController]
 [Route("classes")]
+[Authorize]
 public class ClassesController : ControllerBase
 {
+    private const string AdminRole = "Admin";
+
     private readonly IAdmissionService _admissionService;
 
     public ClassesController(IAdmissionService admissionService)
@@ -17,7 +22,9 @@ public class ClassesController : ControllerBase
     }
 
     // POST /classes
+    // Only administrators can create classes.
     [HttpPost]
+    [Authorize(Roles = AdminRole)]
     public async Task<IActionResult> CreateClass(
         [FromBody] CreateClassRequest request,
         CancellationToken cancellationToken)
@@ -33,6 +40,7 @@ public class ClassesController : ControllerBase
     }
 
     // GET /classes
+    // Authenticated students and administrators can view classes.
     [HttpGet]
     public async Task<IActionResult> GetClasses(
         CancellationToken cancellationToken)
@@ -44,6 +52,7 @@ public class ClassesController : ControllerBase
     }
 
     // GET /classes/{classId}
+    // Authenticated students and administrators can view class details.
     [HttpGet("{classId:guid}")]
     public async Task<IActionResult> GetClassById(
         Guid classId,

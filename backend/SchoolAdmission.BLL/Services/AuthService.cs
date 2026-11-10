@@ -7,6 +7,7 @@ namespace SchoolAdmission.BLL.Services;
 public class AuthService : IAuthService
 {
     private const string StudentRole = "Student";
+    private const string AdminRole = "Admin";
     private const int BirthRegistrationNumberLength = 17;
 
     private readonly IIdentityRepository _identityRepository;
@@ -66,11 +67,11 @@ public class AuthService : IAuthService
         }
 
         var creationResult = await _identityRepository.CreateStudentAsync(
-    fullName,
-    email,
-    password,
-    birthRegistrationNumber,
-    cancellationToken);
+            fullName,
+            email,
+            password,
+            birthRegistrationNumber,
+            cancellationToken);
 
         if (creationResult.BirthRegistrationNumberAlreadyExists)
         {
@@ -98,6 +99,31 @@ public class AuthService : IAuthService
         string password,
         CancellationToken cancellationToken = default)
     {
+        return await LoginAsync(
+            email,
+            password,
+            StudentRole,
+            cancellationToken);
+    }
+
+    public async Task<AuthSessionResult> LoginAdminAsync(
+        string email,
+        string password,
+        CancellationToken cancellationToken = default)
+    {
+        return await LoginAsync(
+            email,
+            password,
+            AdminRole,
+            cancellationToken);
+    }
+
+    private async Task<AuthSessionResult> LoginAsync(
+        string email,
+        string password,
+        string requiredRole,
+        CancellationToken cancellationToken)
+    {
         cancellationToken.ThrowIfCancellationRequested();
 
         email = Normalize(email);
@@ -113,7 +139,7 @@ public class AuthService : IAuthService
             await _identityRepository.AuthenticateAsync(
                 email,
                 password,
-                StudentRole,
+                requiredRole,
                 cancellationToken);
 
         if (authenticationResult.Status !=
@@ -162,7 +188,7 @@ public class AuthService : IAuthService
             rotationResult.UserId,
             cancellationToken);
 
-        if (!IsValidStudentAccount(user))
+        if (!IsValidAccount(user))
         {
             await _refreshTokenRepository.RevokeAsync(
                 rotationResult.RefreshToken,
@@ -302,12 +328,15 @@ public class AuthService : IAuthService
                value.All(char.IsAsciiDigit);
     }
 
-    private static bool IsValidStudentAccount(AuthUserData? user)
+    private static bool IsValidAccount(AuthUserData? user)
     {
         return user is
         {
             IsActive: true
-        } && user.Roles.Contains(StudentRole);
+        } && (
+            user.Roles.Contains(StudentRole) ||
+            user.Roles.Contains(AdminRole)
+        );
     }
 
     private static string Normalize(string? value)

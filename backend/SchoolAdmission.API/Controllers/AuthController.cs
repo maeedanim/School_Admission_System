@@ -98,6 +98,35 @@ public class AuthController : ControllerBase
         return Ok(MapAuthResponse(session));
     }
 
+    // POST: /api/auth/admin/login
+    [HttpPost("admin/login")]
+    [AllowAnonymous]
+    public async Task<IActionResult> LoginAdmin(
+        [FromBody] LoginRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _authService.LoginAdminAsync(
+            request.Email,
+            request.Password,
+            cancellationToken);
+
+        if (result.Status != AuthSessionStatus.Succeeded ||
+            result.Session is null)
+        {
+            return MapAuthenticationFailure(result.Status);
+        }
+
+        var session = result.Session;
+
+        _authCookieService.SetRefreshToken(
+            Request,
+            Response,
+            session.RefreshToken,
+            session.RefreshTokenExpiresAtUtc);
+
+        return Ok(MapAuthResponse(session));
+    }
+
     // POST: /api/auth/refresh
     [HttpPost("refresh")]
     [AllowAnonymous]
