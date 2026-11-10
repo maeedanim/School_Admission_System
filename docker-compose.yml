@@ -1,3 +1,4 @@
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -23,6 +24,28 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: school-admission-api
+    restart: unless-stopped
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      HOLD_DURATION_SECONDS: "600"
+      FRONTEND_ORIGIN: "http://localhost:5173"
+
+    ports:
+      - "8080:8080"
 
 volumes:
   postgres_data:
