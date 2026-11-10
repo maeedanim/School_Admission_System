@@ -1,4 +1,5 @@
 ﻿using SchoolAdmission.BLL.Enums;
+using SchoolAdmission.DAL.Entities.Identity;
 
 namespace SchoolAdmission.DAL.Entities;
 
@@ -19,6 +20,9 @@ public class AdmissionHold
     public DateTime? ConfirmedAtUtc { get; set; }
 
     public DateTime? CancelledAtUtc { get; set; }
+    public Guid? UserId { get; set; }
+
+    public ApplicationUser? User { get; set; }
 
     public AdmissionClass Class { get; set; } = null!;
 }

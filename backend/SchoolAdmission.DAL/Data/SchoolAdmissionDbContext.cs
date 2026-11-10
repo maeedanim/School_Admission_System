@@ -1,9 +1,14 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using SchoolAdmission.DAL.Entities;
+using SchoolAdmission.DAL.Entities.Identity;
 
 namespace SchoolAdmission.DAL.Data;
 
-public class SchoolAdmissionDbContext : DbContext
+public class SchoolAdmissionDbContext
+    : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>
 {
     public SchoolAdmissionDbContext(
         DbContextOptions<SchoolAdmissionDbContext> options)
@@ -15,9 +20,68 @@ public class SchoolAdmissionDbContext : DbContext
 
     public DbSet<AdmissionHold> Holds => Set<AdmissionHold>();
 
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // Application User Configuration
+        modelBuilder.Entity<ApplicationUser>(entity =>
+        {
+            entity.Property(u => u.FullName)
+                .HasMaxLength(200)
+                .IsRequired();
+
+            entity.Property(u => u.BirthRegistrationNumber)
+                .HasMaxLength(17);
+
+            entity.Property(u => u.IsActive)
+                .HasDefaultValue(true);
+
+            entity.Property(u => u.CreatedAtUtc)
+                .HasColumnType("timestamp with time zone");
+
+            // Birth Registration Number must be unique when provided.
+            // Admin accounts can have NULL values.
+            entity.HasIndex(u => u.BirthRegistrationNumber)
+                .IsUnique()
+                .HasFilter("\"BirthRegistrationNumber\" IS NOT NULL");
+        });
+
+        // Refresh Token Configuration
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.ToTable("refresh_tokens");
+
+            entity.HasKey(t => t.Id);
+
+            entity.Property(t => t.TokenHash)
+                .HasMaxLength(64)
+                .IsRequired();
+
+            entity.Property(t => t.ReplacedByTokenHash)
+                .HasMaxLength(64);
+
+            entity.Property(t => t.CreatedAtUtc)
+                .HasColumnType("timestamp with time zone");
+
+            entity.Property(t => t.ExpiresAtUtc)
+                .HasColumnType("timestamp with time zone");
+
+            entity.Property(t => t.RevokedAtUtc)
+                .HasColumnType("timestamp with time zone");
+
+            entity.HasIndex(t => t.TokenHash)
+                .IsUnique();
+
+            entity.HasIndex(t => t.UserId);
+
+            entity.HasOne(t => t.User)
+                .WithMany(u => u.RefreshTokens)
+                .HasForeignKey(t => t.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
         // Admission Classes
         modelBuilder.Entity<AdmissionClass>(entity =>
@@ -111,6 +175,15 @@ public class SchoolAdmissionDbContext : DbContext
             entity.Property(h => h.CancelledAtUtc)
                 .HasColumnName("cancelled_at")
                 .HasColumnType("timestamp with time zone");
+
+            // Student account relationship.
+            // Nullable to preserve existing admission records.
+            entity.HasOne(h => h.User)
+                .WithMany(u => u.Holds)
+                .HasForeignKey(h => h.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(h => h.UserId);
 
             // Index for class seat-count queries
             entity.HasIndex(h => new
