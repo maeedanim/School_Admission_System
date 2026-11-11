@@ -57,7 +57,7 @@ a {
 
 html {
   scroll-behavior: smooth;
-  scroll-padding-top: 100px;
+  scroll-padding-top: var(--navbar-height, 73px);
 }
 
 /* Respect accessibility preferences */

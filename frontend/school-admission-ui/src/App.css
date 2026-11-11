@@ -1,3 +1,11 @@
+/* =========================================
+   CSS CUSTOM PROPERTIES
+========================================= */
+
+:root {
+  --navbar-height: 73px; /* desktop navbar height */
+}
+
 /* Navbar */
 
 .navbar {
@@ -18,7 +26,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 16px;
+  /* Never wrap â€” hamburger takes over on mobile */
+  flex-wrap: nowrap;
 }
 
 .brand {
@@ -29,6 +39,8 @@
   font-size: 21px;
   font-weight: 800;
   color: #17233c;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .brand-icon {
@@ -39,13 +51,16 @@
   color: #2864d8;
   display: grid;
   place-items: center;
+  flex-shrink: 0;
 }
 
 .brand-highlight {
   color: #2864d8;
 }
 
-.nav-links {
+/* Desktop nav links */
+
+.nav-links-desktop {
   display: flex;
   align-items: center;
   gap: 32px;
@@ -54,17 +69,28 @@
   color: #64748b;
 }
 
-.nav-links a:hover {
+.nav-links-desktop a:hover {
   color: #2864d8;
 }
 
-.navbar-label {
+/* Right-side group (label + hamburger) */
+
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.navbar-label-desktop {
   display: flex;
   align-items: center;
   gap: 8px;
   color: #475569;
   font-size: 13px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .status-dot {
@@ -72,6 +98,126 @@
   height: 8px;
   background: #16a34a;
   border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Hamburger button â€” hidden on desktop */
+
+.nav-hamburger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #e8edf5;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  flex-shrink: 0;
+}
+
+.nav-hamburger:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+/* =========================================
+   MOBILE MENU DRAWER
+========================================= */
+
+.mobile-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(23, 35, 60, 0.35);
+  backdrop-filter: blur(2px);
+  /* Pushes overlay below the fixed navbar */
+  top: var(--navbar-height);
+}
+
+.mobile-menu {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border-bottom: 1px solid #e8edf5;
+  box-shadow: 0 8px 28px rgba(23, 35, 60, 0.12);
+  padding: 8px 0 16px;
+  display: flex;
+  flex-direction: column;
+  animation: mobile-menu-enter 0.2s ease-out both;
+}
+
+@keyframes mobile-menu-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mobile-nav-link {
+  display: block;
+  padding: 14px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #334155;
+  transition: background 0.15s, color 0.15s;
+}
+
+.mobile-nav-link:hover,
+.mobile-nav-link.active {
+  background: #f1f5f9;
+  color: #2864d8;
+}
+
+.mobile-menu-divider {
+  height: 1px;
+  background: #e8edf5;
+  margin: 10px 0;
+}
+
+.mobile-user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mobile-username {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-logout-button {
+  margin: 6px 20px 0;
+  padding: 11px 16px;
+  border: 1px solid #dce3ee;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #dc2626;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  text-align: left;
+}
+
+.mobile-logout-button:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
 }
 
 /* Page */
@@ -80,7 +226,7 @@
   max-width: 1200px;
   margin: 0 auto;
   padding: 32px 24px 60px;
-  padding-top: calc(72px + 32px);
+  padding-top: calc(var(--navbar-height) + 32px);
 }
 
 /* Hero */
@@ -491,28 +637,44 @@
   }
 }
 
-@media (max-width: 650px) {
+@media (max-width: 768px) {
+  /* Switch to hamburger */
+  .nav-links-desktop {
+    display: none;
+  }
+
+  .navbar-label-desktop {
+    display: none;
+  }
+
+  .nav-hamburger {
+    display: flex;
+  }
+
+  :root {
+    --navbar-height: 65px;
+  }
+
   .navbar-container {
-    padding: 13px 18px;
-    flex-wrap: wrap;
+    padding: 12px 16px;
   }
 
-  .nav-links {
-    order: 3;
-    width: 100%;
-    justify-content: space-between;
-    gap: 12px;
-    font-size: 12px;
+  .brand {
+    font-size: 19px;
   }
 
-  .navbar-label {
-    font-size: 11px;
+  .brand-icon {
+    width: 38px;
+    height: 38px;
   }
 
   .page-container {
-    padding: 20px 16px 45px;
+    padding: 24px 16px 50px;
+    padding-top: calc(var(--navbar-height) + 24px);
   }
+}
 
+@media (max-width: 650px) {
   .hero-section {
     min-height: 340px;
     padding: 35px 25px;
@@ -561,6 +723,99 @@
   .footer {
     flex-direction: column;
     text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --navbar-height: 61px;
+  }
+
+  .navbar-container {
+    padding: 10px 14px;
+  }
+
+  .brand {
+    font-size: 18px;
+  }
+
+  .brand-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .page-container {
+    padding: 16px 14px 40px;
+    padding-top: calc(var(--navbar-height) + 16px);
+  }
+
+  .hero-section {
+    min-height: unset;
+    padding: 28px 20px;
+    border-radius: 14px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .hero-decoration {
+    display: none;
+  }
+
+  .hero-content h1 {
+    font-size: 26px;
+    margin: 14px 0 10px;
+  }
+
+  .hero-content p {
+    font-size: 13px;
+  }
+
+  .hero-button {
+    padding: 11px 16px;
+    font-size: 13px;
+    margin-top: 16px;
+  }
+
+  .section-heading h2 {
+    font-size: 18px;
+  }
+
+  .dashboard-section {
+    margin-top: 28px;
+  }
+
+  .student-identity {
+    padding: 16px;
+  }
+
+  .identity-heading {
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .identity-icon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .identity-heading h2 {
+    font-size: 14px;
+  }
+
+  .identity-heading p {
+    font-size: 12px;
+  }
+
+  .identity-form input {
+    padding: 12px 13px;
+    font-size: 16px;
+  }
+
+  .identity-form button,
+  .identity-saved button {
+    padding: 12px 16px;
+    font-size: 13px;
   }
 }
 
@@ -927,16 +1182,16 @@
   }
 }
 
-.nav-links a {
+.nav-links-desktop a {
   position: relative;
   transition: color 0.2s ease;
 }
 
-.nav-links a.active {
+.nav-links-desktop a.active {
   color: #2864d8;
 }
 
-.nav-links a.active::after {
+.nav-links-desktop a.active::after {
   content: "";
   position: absolute;
   left: 0;
@@ -1049,12 +1304,12 @@
 
 
 /* =========================================
-   GLOBAL — Prevent horizontal overflow
+   GLOBAL â€” Prevent horizontal overflow
 ========================================= */
 
 html {
   width: 100%;
-  /* NOTE: overflow-x must NOT be set on html � it breaks position:fixed */
+  /* NOTE: overflow-x must NOT be set on html ï¿½ it breaks position:fixed */
 }
 
 body {
@@ -1071,12 +1326,15 @@ select {
 
 
 /* =========================================
-   TABLET (≤900px)
+
+/* =========================================
+   TABLET (<=900px)
 ========================================= */
 
 @media (max-width: 900px) {
   .page-container {
     padding: 24px 20px 50px;
+    padding-top: calc(var(--navbar-height) + 24px);
   }
 
   .hero-section {
@@ -1090,23 +1348,15 @@ select {
 
 
 /* =========================================
-   MOBILE (≤650px)  — augment existing rules
+   MOBILE (<=650px)
 ========================================= */
 
 @media (max-width: 650px) {
 
-  /* Prevent nav links from overflowing on medium-small screens */
-  .nav-links {
-    gap: 10px;
-    font-size: 12px;
-  }
-
-  /* Identity saved state wraps nicely */
   .identity-saved {
     gap: 12px;
   }
 
-  /* Applications hero */
   .applications-hero {
     padding: 20px 0 12px;
   }
@@ -1119,83 +1369,79 @@ select {
     font-size: 13px;
   }
 
-  /* Section heading */
   .section-heading h2 {
     font-size: 20px;
+  }
+
+  .identity-form button {
+    width: 100%;
   }
 }
 
 
 /* =========================================
-   SMALL MOBILE (≤480px)
+   SMALL MOBILE (<=480px)
 ========================================= */
 
 @media (max-width: 480px) {
 
-  /* Navbar */
-  .navbar-container {
-    padding: 10px 14px;
-    gap: 10px;
+  .applications-hero {
+    padding: 16px 0 10px;
   }
 
-  .brand {
-    font-size: 18px;
+  .applications-hero h1 {
+    font-size: 22px;
   }
 
-  .brand-icon {
-    width: 36px;
-    height: 36px;
+  .applications-hero p {
+    font-size: 13px;
+    line-height: 1.6;
   }
 
-  .nav-links {
-    gap: 8px;
+  .application-card {
+    padding: 16px;
+  }
+
+  .application-card-header h3 {
+    font-size: 16px;
+  }
+
+  .hold-countdown {
+    font-size: 12px;
+  }
+
+  .hold-countdown strong {
+    font-size: 16px;
+  }
+
+  .footer {
+    padding: 18px 14px;
     font-size: 11px;
   }
 
-  /* Page */
-  .page-container {
-    padding: 16px 14px 40px;
+  .class-card {
+    padding: 16px;
   }
 
-  /* Hero banner */
-  .hero-section {
-    min-height: unset;
-    padding: 28px 20px;
-    border-radius: 14px;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
+  .class-card h3 {
+    font-size: 16px;
+    margin-top: 14px;
   }
 
-  .hero-decoration {
-    display: none;
+  .total-seats {
+    font-size: 12px;
   }
 
-  .hero-content h1 {
-    font-size: 26px;
-    margin: 14px 0 10px;
+  .seat-stat {
+    font-size: 12px;
   }
 
-  .hero-content p {
-    font-size: 13px;
+  .apply-button {
+    font-size: 12px;
+    padding: 11px;
+    margin-top: 14px;
   }
 
-  .hero-button {
-    padding: 11px 16px;
-    font-size: 13px;
-    margin-top: 16px;
-  }
-
-  /* Section headings */
-  .section-heading h2 {
-    font-size: 18px;
-  }
-
-  .dashboard-section {
-    margin-top: 28px;
-  }
-
-  /* Student identity */
   .student-identity {
     padding: 16px;
   }
@@ -1221,7 +1467,6 @@ select {
   .identity-form input {
     padding: 12px 13px;
     font-size: 16px;
-    /* prevents iOS zoom */
   }
 
   .identity-form button,
@@ -1229,64 +1474,26 @@ select {
     padding: 12px 16px;
     font-size: 13px;
   }
-
-  /* Applications hero */
-  .applications-hero {
-    padding: 16px 0 10px;
-  }
-
-  .applications-hero h1 {
-    font-size: 22px;
-  }
-
-  .applications-hero p {
-    font-size: 13px;
-    line-height: 1.6;
-  }
-
-  /* Application cards */
-  .application-card {
-    padding: 16px;
-  }
-
-  .application-card-header h3 {
-    font-size: 16px;
-  }
-
-  .hold-countdown {
-    font-size: 12px;
-  }
-
-  .hold-countdown strong {
-    font-size: 16px;
-  }
-
-  /* Footer */
-  .footer {
-    padding: 18px 14px;
-    font-size: 11px;
-  }
 }
 
 
 /* =========================================
-   EXTRA SMALL (≤360px)
+   EXTRA SMALL (<=360px)
 ========================================= */
 
 @media (max-width: 360px) {
+  :root {
+    --navbar-height: 57px;
+  }
+
   .brand {
-    font-size: 16px;
+    font-size: 15px;
   }
 
   .brand-icon {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     border-radius: 9px;
-  }
-
-  .nav-links {
-    font-size: 10.5px;
-    gap: 6px;
   }
 
   .hero-content h1 {
@@ -1312,61 +1519,7 @@ select {
   .footer {
     font-size: 10px;
   }
-}
 
-
-/* =========================================
-   RESPONSIVE GAPS � ADDED FIXES
-========================================= */
-
-/* ---- Identity form: button full-width when stacked (650px breakpoint) ---- */
-
-@media (max-width: 650px) {
-  .identity-form button {
-    width: 100%;
-  }
-}
-
-/* ---- Class cards: tighten on small screens ---- */
-
-@media (max-width: 480px) {
-  .class-card {
-    padding: 16px;
-  }
-
-  .class-card h3 {
-    font-size: 16px;
-    margin-top: 14px;
-  }
-
-  .total-seats {
-    font-size: 12px;
-  }
-
-  .seat-stat {
-    font-size: 12px;
-  }
-
-  .apply-button {
-    font-size: 12px;
-    padding: 11px;
-    margin-top: 14px;
-  }
-}
-
-/* ---- Navbar label: hide on very small screens to prevent overflow ---- */
-
-@media (max-width: 480px) {
-  .navbar-label {
-    display: none;
-  }
-}
-
-/* ---- Extra-small additions (360px) ---- */
-
-@media (max-width: 360px) {
-
-  /* Applications hero */
   .applications-hero h1 {
     font-size: 19px;
   }
@@ -1375,7 +1528,6 @@ select {
     font-size: 12px;
   }
 
-  /* Class card */
   .class-card h3 {
     font-size: 14px;
   }
@@ -1384,14 +1536,13 @@ select {
     font-size: 11px;
   }
 
-  /* Student identity */
   .identity-heading h2 {
     font-size: 13px;
   }
 
-  /* Page container */
   .page-container {
     padding: 12px 10px 36px;
+    padding-top: calc(var(--navbar-height) + 12px);
   }
 }
 
