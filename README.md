@@ -19,7 +19,7 @@ The following demo accounts are provided for reviewers to explore the live appli
 | Role | Email | Password |
 |---|---|---|
 | Administrator | `admin@gmail.com` | `Admin123` |
-| Student | `student@example.com` | `Sudent123` |
+| Student | `student@gmail.com` | `Sudent123` |
 
 > These credentials are provided exclusively for demonstration and assignment evaluation. Please do not use these accounts for personal or sensitive information.
 
