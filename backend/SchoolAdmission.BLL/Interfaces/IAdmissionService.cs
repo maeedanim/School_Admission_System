@@ -1,4 +1,5 @@
-﻿using SchoolAdmission.BLL.DTOs.Requests;
+﻿
+using SchoolAdmission.BLL.DTOs.Requests;
 using SchoolAdmission.BLL.DTOs.Responses;
 
 namespace SchoolAdmission.BLL.Interfaces;
@@ -20,24 +21,25 @@ public interface IAdmissionService
     // Hold operations
     Task<CreateHoldResponse> CreateHoldAsync(
         Guid classId,
-        string studentId,
+        Guid userId,
         CancellationToken cancellationToken = default);
 
     Task<HoldResponse> GetHoldByIdAsync(
         Guid holdId,
+        Guid userId,
         CancellationToken cancellationToken = default);
 
     Task<ConfirmHoldResponse> ConfirmHoldAsync(
         Guid holdId,
-        string studentId,
+        Guid userId,
         CancellationToken cancellationToken = default);
 
     Task CancelHoldAsync(
         Guid holdId,
-        string studentId,
+        Guid userId,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<MyHoldResponse>> GetStudentHoldsAsync(
-        string studentId,
+        Guid userId,
         CancellationToken cancellationToken = default);
 }

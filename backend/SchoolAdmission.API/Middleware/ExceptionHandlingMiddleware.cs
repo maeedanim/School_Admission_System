@@ -1,5 +1,4 @@
 ﻿
-using System.Net;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using SchoolAdmission.BLL.Exceptions;
@@ -59,9 +58,11 @@ public class ExceptionHandlingMiddleware
             "INVALID_STUDENT_ID" => StatusCodes.Status400BadRequest,
             "VALIDATION_ERROR" => StatusCodes.Status400BadRequest,
 
-            "NOT_FOUND" => StatusCodes.Status404NotFound,
-
+            "UNAUTHENTICATED" => StatusCodes.Status401Unauthorized,
+            "FORBIDDEN" => StatusCodes.Status403Forbidden,
             "NOT_OWNER" => StatusCodes.Status403Forbidden,
+
+            "NOT_FOUND" => StatusCodes.Status404NotFound,
 
             "SEATS_UNAVAILABLE" => StatusCodes.Status409Conflict,
             "ALREADY_APPLIED" => StatusCodes.Status409Conflict,

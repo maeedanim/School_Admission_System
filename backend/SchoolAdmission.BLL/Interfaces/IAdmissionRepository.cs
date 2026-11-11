@@ -21,25 +21,27 @@ public interface IAdmissionRepository
     // Hold operations
     Task<HoldCreationResult> CreateHoldAsync(
         Guid classId,
+        Guid userId,
         string studentId,
         int holdDurationSeconds,
         CancellationToken cancellationToken = default);
 
     Task<HoldData?> GetHoldByIdAsync(
         Guid holdId,
+        Guid userId,
         CancellationToken cancellationToken = default);
 
     Task<HoldConfirmationStatus> ConfirmHoldAsync(
         Guid holdId,
-        string studentId,
+        Guid userId,
         CancellationToken cancellationToken = default);
 
     Task<HoldCancellationStatus> CancelHoldAsync(
         Guid holdId,
-        string studentId,
+        Guid userId,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<MyHoldData>> GetStudentHoldsAsync(
-        string studentId,
+        Guid userId,
         CancellationToken cancellationToken = default);
 }

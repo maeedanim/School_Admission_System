@@ -143,6 +143,10 @@ public class SchoolAdmissionDbContext
                 .HasColumnName("class_id")
                 .IsRequired();
 
+            // Explicitly map the nullable user foreign key to snake_case.
+            entity.Property(h => h.UserId)
+                .HasColumnName("user_id");
+
             entity.Property(h => h.StudentId)
                 .HasColumnName("student_id")
                 .HasMaxLength(17)

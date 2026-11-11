@@ -221,7 +221,8 @@ namespace SchoolAdmission.DAL.Migrations
                         .HasColumnName("student_id");
 
                     b.Property<Guid?>("UserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
 
                     b.HasKey("Id");
 

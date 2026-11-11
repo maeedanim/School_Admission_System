@@ -116,6 +116,7 @@ public class AdmissionRepository : IAdmissionRepository
 
     public async Task<HoldCreationResult> CreateHoldAsync(
         Guid classId,
+        Guid userId,
         string studentId,
         int holdDurationSeconds,
         CancellationToken cancellationToken = default)
@@ -194,10 +195,12 @@ public class AdmissionRepository : IAdmissionRepository
         }
 
         // Create the new hold using database time.
+        // UserId links the hold to the authenticated account.
         var hold = new AdmissionHold
         {
             Id = Guid.NewGuid(),
             ClassId = classId,
+            UserId = userId,
             StudentId = studentId,
             Status = AdmissionHoldStatus.Held,
             CreatedAtUtc = databaseNow,
@@ -231,14 +234,16 @@ public class AdmissionRepository : IAdmissionRepository
 
     public async Task<HoldData?> GetHoldByIdAsync(
         Guid holdId,
+        Guid userId,
         CancellationToken cancellationToken = default)
     {
-        // Persist expiry when the hold has passed its expiration time.
+        // Persist expiry only for the authenticated user's hold.
         await _context.Database.ExecuteSqlInterpolatedAsync(
             $"""
             UPDATE holds
             SET status = 'EXPIRED'
             WHERE id = {holdId}
+              AND user_id = {userId}
               AND status = 'HELD'
               AND expires_at <= clock_timestamp()
             """,
@@ -246,7 +251,9 @@ public class AdmissionRepository : IAdmissionRepository
 
         return await _context.Holds
             .AsNoTracking()
-            .Where(hold => hold.Id == holdId)
+            .Where(hold =>
+                hold.Id == holdId &&
+                hold.UserId == userId)
             .Select(hold => new HoldData
             {
                 Id = hold.Id,
@@ -265,7 +272,7 @@ public class AdmissionRepository : IAdmissionRepository
 
     public async Task<HoldConfirmationStatus> ConfirmHoldAsync(
         Guid holdId,
-        string studentId,
+        Guid userId,
         CancellationToken cancellationToken = default)
     {
         // Find the associated class before acquiring locks.
@@ -308,8 +315,8 @@ public class AdmissionRepository : IAdmissionRepository
             return HoldConfirmationStatus.HoldNotFound;
         }
 
-        // Verify ownership.
-        if (hold.StudentId != studentId)
+        // Verify ownership using the authenticated account ID.
+        if (hold.UserId != userId)
         {
             await transaction.CommitAsync(cancellationToken);
             return HoldConfirmationStatus.NotOwner;
@@ -334,17 +341,17 @@ public class AdmissionRepository : IAdmissionRepository
             return HoldConfirmationStatus.NotActive;
         }
 
-        // Confirm only if the hold is still active.
+        // Confirm only if the hold is still active and belongs to this user.
         int updatedRows = await _context.Database.ExecuteSqlInterpolatedAsync(
             $"""
-         UPDATE holds
-         SET status = 'CONFIRMED',
-             confirmed_at = clock_timestamp()
-         WHERE id = {holdId}
-           AND student_id = {studentId}
-           AND status = 'HELD'
-           AND expires_at > clock_timestamp()
-         """,
+            UPDATE holds
+            SET status = 'CONFIRMED',
+                confirmed_at = clock_timestamp()
+            WHERE id = {holdId}
+              AND user_id = {userId}
+              AND status = 'HELD'
+              AND expires_at > clock_timestamp()
+            """,
             cancellationToken);
 
         if (updatedRows == 1)
@@ -356,12 +363,13 @@ public class AdmissionRepository : IAdmissionRepository
         // Persist expiration if the hold expired during processing.
         int expiredRows = await _context.Database.ExecuteSqlInterpolatedAsync(
             $"""
-         UPDATE holds
-         SET status = 'EXPIRED'
-         WHERE id = {holdId}
-           AND status = 'HELD'
-           AND expires_at <= clock_timestamp()
-         """,
+            UPDATE holds
+            SET status = 'EXPIRED'
+            WHERE id = {holdId}
+              AND user_id = {userId}
+              AND status = 'HELD'
+              AND expires_at <= clock_timestamp()
+            """,
             cancellationToken);
 
         await transaction.CommitAsync(cancellationToken);
@@ -372,12 +380,11 @@ public class AdmissionRepository : IAdmissionRepository
             : HoldConfirmationStatus.NotActive;
     }
 
-
     // Hold cancellation
 
     public async Task<HoldCancellationStatus> CancelHoldAsync(
         Guid holdId,
-        string studentId,
+        Guid userId,
         CancellationToken cancellationToken = default)
     {
         // Find the associated class before acquiring locks.
@@ -420,8 +427,8 @@ public class AdmissionRepository : IAdmissionRepository
             return HoldCancellationStatus.HoldNotFound;
         }
 
-        // Verify ownership.
-        if (hold.StudentId != studentId)
+        // Verify ownership using the authenticated account ID.
+        if (hold.UserId != userId)
         {
             await transaction.CommitAsync(cancellationToken);
             return HoldCancellationStatus.NotOwner;
@@ -446,7 +453,7 @@ public class AdmissionRepository : IAdmissionRepository
             SET status = 'CANCELLED',
                 cancelled_at = clock_timestamp()
             WHERE id = {holdId}
-              AND student_id = {studentId}
+              AND user_id = {userId}
               AND status = 'HELD'
               AND expires_at > clock_timestamp()
             """,
@@ -464,6 +471,7 @@ public class AdmissionRepository : IAdmissionRepository
             UPDATE holds
             SET status = 'EXPIRED'
             WHERE id = {holdId}
+              AND user_id = {userId}
               AND status = 'HELD'
               AND expires_at <= clock_timestamp()
             """,
@@ -477,15 +485,15 @@ public class AdmissionRepository : IAdmissionRepository
     // Student hold history
 
     public async Task<IReadOnlyList<MyHoldData>> GetStudentHoldsAsync(
-        string studentId,
+        Guid userId,
         CancellationToken cancellationToken = default)
     {
-        // Persist expiry for this student's outdated holds.
+        // Persist expiry only for this authenticated user's outdated holds.
         await _context.Database.ExecuteSqlInterpolatedAsync(
             $"""
             UPDATE holds
             SET status = 'EXPIRED'
-            WHERE student_id = {studentId}
+            WHERE user_id = {userId}
               AND status = 'HELD'
               AND expires_at <= clock_timestamp()
             """,
@@ -493,7 +501,7 @@ public class AdmissionRepository : IAdmissionRepository
 
         return await _context.Holds
             .AsNoTracking()
-            .Where(hold => hold.StudentId == studentId)
+            .Where(hold => hold.UserId == userId)
             .OrderByDescending(hold => hold.CreatedAtUtc)
             .Select(hold => new MyHoldData
             {

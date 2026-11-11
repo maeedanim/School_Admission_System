@@ -1,12 +1,14 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+
 using SchoolAdmission.BLL.DTOs.Requests;
 using SchoolAdmission.BLL.Exceptions;
 using SchoolAdmission.BLL.Interfaces;
-using SchoolAdmission.Tests.Infrastructure;
-using Microsoft.EntityFrameworkCore;
+
 using SchoolAdmission.DAL.Data;
 
-
+using SchoolAdmission.Tests.Infrastructure;
 
 namespace SchoolAdmission.Tests;
 
@@ -53,7 +55,6 @@ public class AdmissionIntegrationTests
         Assert.Equal(10, retrievedClass.AvailableSeats);
     }
 
-
     [Fact]
     public async Task CreateHold_WhenClassHasOneSeat_ShouldRejectSecondStudent()
     {
@@ -70,24 +71,26 @@ public class AdmissionIntegrationTests
                 TotalSeats = 1
             });
 
-        const string firstStudentId = "11111111111111111";
-        const string secondStudentId = "22222222222222222";
+        var firstStudent = await _fixture.CreateStudentAsync();
+        var secondStudent = await _fixture.CreateStudentAsync();
 
         // Act: First student reserves the only available seat.
         var firstHold = await admissionService.CreateHoldAsync(
             createdClass.Id,
-            firstStudentId);
+            firstStudent.UserId);
 
         // Assert: First reservation succeeds.
         Assert.Equal("HELD", firstHold.Status);
         Assert.Equal(createdClass.Id, firstHold.ClassId);
-        Assert.Equal(firstStudentId, firstHold.StudentId);
+        Assert.Equal(
+            firstStudent.BirthRegistrationNumber,
+            firstHold.StudentId);
 
         // Act and Assert: Second student must be rejected.
         var exception = await Assert.ThrowsAsync<AdmissionException>(
             () => admissionService.CreateHoldAsync(
                 createdClass.Id,
-                secondStudentId));
+                secondStudent.UserId));
 
         Assert.Equal("SEATS_UNAVAILABLE", exception.Code);
 
@@ -99,7 +102,6 @@ public class AdmissionIntegrationTests
         Assert.Equal(0, classDetails.ConfirmedSeats);
         Assert.Equal(0, classDetails.AvailableSeats);
     }
-
 
     [Fact]
     public async Task CreateHold_WhenStudentAlreadyApplied_ShouldRejectDuplicateApplication()
@@ -117,18 +119,18 @@ public class AdmissionIntegrationTests
                 TotalSeats = 3
             });
 
-        const string studentId = "33333333333333333";
+        var student = await _fixture.CreateStudentAsync();
 
         // Act: Student creates the first application.
         var firstHold = await admissionService.CreateHoldAsync(
             createdClass.Id,
-            studentId);
+            student.UserId);
 
         // Act and Assert: The same student tries to apply again.
         var exception = await Assert.ThrowsAsync<AdmissionException>(
             () => admissionService.CreateHoldAsync(
                 createdClass.Id,
-                studentId));
+                student.UserId));
 
         Assert.Equal("ALREADY_APPLIED", exception.Code);
 
@@ -141,7 +143,6 @@ public class AdmissionIntegrationTests
         Assert.Equal(0, classDetails.ConfirmedSeats);
         Assert.Equal(2, classDetails.AvailableSeats);
     }
-
 
     [Fact]
     public async Task ConfirmHold_WhenHoldHasExpired_ShouldRejectConfirmationAndReleaseSeat()
@@ -159,11 +160,11 @@ public class AdmissionIntegrationTests
                 TotalSeats = 1
             });
 
-        const string studentId = "44444444444444444";
+        var student = await _fixture.CreateStudentAsync();
 
         var hold = await admissionService.CreateHoldAsync(
             createdClass.Id,
-            studentId);
+            student.UserId);
 
         Assert.Equal("HELD", hold.Status);
 
@@ -173,10 +174,10 @@ public class AdmissionIntegrationTests
 
         int updatedRows = await dbContext.Database.ExecuteSqlInterpolatedAsync(
             $"""
-     UPDATE holds
-     SET expires_at = clock_timestamp() - INTERVAL '1 second'
-     WHERE id = {hold.HoldId}
-     """);
+            UPDATE holds
+            SET expires_at = clock_timestamp() - INTERVAL '1 second'
+            WHERE id = {hold.HoldId}
+            """);
 
         Assert.Equal(1, updatedRows);
 
@@ -184,13 +185,14 @@ public class AdmissionIntegrationTests
         var exception = await Assert.ThrowsAsync<AdmissionException>(
             () => admissionService.ConfirmHoldAsync(
                 hold.HoldId,
-                studentId));
+                student.UserId));
 
         // Assert: Confirmation must fail because the hold expired.
         Assert.Equal("HOLD_EXPIRED", exception.Code);
 
         var expiredHold = await admissionService.GetHoldByIdAsync(
-    hold.HoldId);
+            hold.HoldId,
+            student.UserId);
 
         Assert.Equal("EXPIRED", expiredHold.Status);
 
@@ -218,23 +220,23 @@ public class AdmissionIntegrationTests
                 TotalSeats = 2
             });
 
-        const string studentId = "55555555555555555";
+        var student = await _fixture.CreateStudentAsync();
 
         var hold = await service.CreateHoldAsync(
             createdClass.Id,
-            studentId);
+            student.UserId);
 
         // First confirmation.
         var firstConfirmation = await service.ConfirmHoldAsync(
             hold.HoldId,
-            studentId);
+            student.UserId);
 
         Assert.Equal("CONFIRMED", firstConfirmation.Status);
 
         // Second confirmation must succeed without double-counting.
         var secondConfirmation = await service.ConfirmHoldAsync(
             hold.HoldId,
-            studentId);
+            student.UserId);
 
         Assert.Equal("CONFIRMED", secondConfirmation.Status);
 
@@ -245,7 +247,6 @@ public class AdmissionIntegrationTests
         Assert.Equal(1, classData.ConfirmedSeats);
         Assert.Equal(1, classData.AvailableSeats);
     }
-
 
     [Fact]
     public async Task ConfirmHold_WhenStudentIsNotOwner_ShouldRejectConfirmation()
@@ -262,17 +263,17 @@ public class AdmissionIntegrationTests
                 TotalSeats = 2
             });
 
-        const string ownerStudentId = "66666666666666666";
-        const string otherStudentId = "77777777777777777";
+        var owner = await _fixture.CreateStudentAsync();
+        var otherStudent = await _fixture.CreateStudentAsync();
 
         var hold = await service.CreateHoldAsync(
             createdClass.Id,
-            ownerStudentId);
+            owner.UserId);
 
         var exception = await Assert.ThrowsAsync<AdmissionException>(
             () => service.ConfirmHoldAsync(
                 hold.HoldId,
-                otherStudentId));
+                otherStudent.UserId));
 
         Assert.Equal("NOT_OWNER", exception.Code);
 
@@ -299,18 +300,19 @@ public class AdmissionIntegrationTests
                 TotalSeats = 2
             });
 
-        const string studentId = "88888888888888888";
+        var student = await _fixture.CreateStudentAsync();
 
         var hold = await admissionService.CreateHoldAsync(
             createdClass.Id,
-            studentId);
+            student.UserId);
 
         await admissionService.CancelHoldAsync(
             hold.HoldId,
-            studentId);
+            student.UserId);
 
         var cancelledHold = await admissionService.GetHoldByIdAsync(
-            hold.HoldId);
+            hold.HoldId,
+            student.UserId);
 
         var classStatus = await admissionService.GetClassByIdAsync(
             createdClass.Id);
@@ -320,7 +322,6 @@ public class AdmissionIntegrationTests
         Assert.Equal(0, classStatus.ConfirmedSeats);
         Assert.Equal(2, classStatus.AvailableSeats);
     }
-
 
     [Fact]
     public async Task CancelHold_WhenAlreadyCancelled_ShouldSucceedIdempotently()
@@ -337,21 +338,21 @@ public class AdmissionIntegrationTests
                 TotalSeats = 2
             });
 
-        const string studentId = "99999999999999999";
+        var student = await _fixture.CreateStudentAsync();
 
         var hold = await admissionService.CreateHoldAsync(
             createdClass.Id,
-            studentId);
+            student.UserId);
 
         // First cancellation.
         await admissionService.CancelHoldAsync(
             hold.HoldId,
-            studentId);
+            student.UserId);
 
         // Second cancellation should also succeed.
         await admissionService.CancelHoldAsync(
             hold.HoldId,
-            studentId);
+            student.UserId);
 
         var classStatus = await admissionService.GetClassByIdAsync(
             createdClass.Id);
@@ -360,7 +361,6 @@ public class AdmissionIntegrationTests
         Assert.Equal(0, classStatus.ConfirmedSeats);
         Assert.Equal(2, classStatus.AvailableSeats);
     }
-
 
     [Fact]
     public async Task CancelHold_WhenStudentIsNotOwner_ShouldRejectCancellation()
@@ -377,17 +377,17 @@ public class AdmissionIntegrationTests
                 TotalSeats = 2
             });
 
-        const string ownerId = "11111111111111111";
-        const string otherStudentId = "22222222222222222";
+        var owner = await _fixture.CreateStudentAsync();
+        var otherStudent = await _fixture.CreateStudentAsync();
 
         var hold = await admissionService.CreateHoldAsync(
             createdClass.Id,
-            ownerId);
+            owner.UserId);
 
         var exception = await Assert.ThrowsAsync<AdmissionException>(
             () => admissionService.CancelHoldAsync(
                 hold.HoldId,
-                otherStudentId));
+                otherStudent.UserId));
 
         Assert.Equal("NOT_OWNER", exception.Code);
 
@@ -398,7 +398,6 @@ public class AdmissionIntegrationTests
         Assert.Equal(0, classStatus.ConfirmedSeats);
         Assert.Equal(1, classStatus.AvailableSeats);
     }
-
 
     [Fact]
     public async Task CancelHold_WhenAdmissionIsConfirmed_ShouldRejectCancellation()
@@ -415,20 +414,20 @@ public class AdmissionIntegrationTests
                 TotalSeats = 2
             });
 
-        const string studentId = "33333333333333333";
+        var student = await _fixture.CreateStudentAsync();
 
         var hold = await admissionService.CreateHoldAsync(
             createdClass.Id,
-            studentId);
+            student.UserId);
 
         await admissionService.ConfirmHoldAsync(
             hold.HoldId,
-            studentId);
+            student.UserId);
 
         var exception = await Assert.ThrowsAsync<AdmissionException>(
             () => admissionService.CancelHoldAsync(
                 hold.HoldId,
-                studentId));
+                student.UserId));
 
         Assert.Equal("HOLD_NOT_ACTIVE", exception.Code);
 
@@ -439,7 +438,6 @@ public class AdmissionIntegrationTests
         Assert.Equal(1, classStatus.ConfirmedSeats);
         Assert.Equal(1, classStatus.AvailableSeats);
     }
-
 
     [Fact]
     public async Task CancelHold_WhenHoldHasExpired_ShouldRejectCancellationAndReleaseSeat()
@@ -456,11 +454,11 @@ public class AdmissionIntegrationTests
                 TotalSeats = 1
             });
 
-        const string studentId = "44444444444444444";
+        var student = await _fixture.CreateStudentAsync();
 
         var hold = await admissionService.CreateHoldAsync(
             createdClass.Id,
-            studentId);
+            student.UserId);
 
         // Force the hold to expire in the test database.
         var dbContext = scope.ServiceProvider
@@ -468,10 +466,10 @@ public class AdmissionIntegrationTests
 
         int updatedRows = await dbContext.Database.ExecuteSqlInterpolatedAsync(
             $"""
-         UPDATE holds
-         SET expires_at = clock_timestamp() - INTERVAL '1 second'
-         WHERE id = {hold.HoldId}
-         """);
+            UPDATE holds
+            SET expires_at = clock_timestamp() - INTERVAL '1 second'
+            WHERE id = {hold.HoldId}
+            """);
 
         Assert.Equal(1, updatedRows);
 
@@ -479,12 +477,13 @@ public class AdmissionIntegrationTests
         var exception = await Assert.ThrowsAsync<AdmissionException>(
             () => admissionService.CancelHoldAsync(
                 hold.HoldId,
-                studentId));
+                student.UserId));
 
         Assert.Equal("HOLD_NOT_ACTIVE", exception.Code);
 
         var expiredHold = await admissionService.GetHoldByIdAsync(
-            hold.HoldId);
+            hold.HoldId,
+            student.UserId);
 
         var classStatus = await admissionService.GetClassByIdAsync(
             createdClass.Id);
@@ -494,7 +493,6 @@ public class AdmissionIntegrationTests
         Assert.Equal(0, classStatus.ConfirmedSeats);
         Assert.Equal(1, classStatus.AvailableSeats);
     }
-
 
     [Fact]
     public async Task CreateHold_WhenMultipleStudentsApplyConcurrently_ShouldNeverOversellSeats()
@@ -512,11 +510,16 @@ public class AdmissionIntegrationTests
                 TotalSeats = 3
             });
 
+        // Create 10 real student accounts before starting concurrent requests.
+        var students = await Task.WhenAll(
+            Enumerable.Range(1, 10)
+                .Select(_ => _fixture.CreateStudentAsync()));
+
         // All requests must start together.
         var startSignal = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
 
-        async Task<bool> TryCreateHoldAsync(string studentId)
+        async Task<bool> TryCreateHoldAsync(Guid userId)
         {
             // Each request gets its own DI scope and DbContext.
             using var scope = _fixture.CreateScope();
@@ -530,7 +533,7 @@ public class AdmissionIntegrationTests
             {
                 await admissionService.CreateHoldAsync(
                     createdClass.Id,
-                    studentId);
+                    userId);
 
                 return true;
             }
@@ -541,9 +544,9 @@ public class AdmissionIntegrationTests
             }
         }
 
-        // Arrange 10 requests with 10 unique student IDs.
-        var tasks = Enumerable.Range(1, 10)
-            .Select(number => TryCreateHoldAsync(number.ToString("D17")))
+        // Arrange 10 requests using 10 distinct student accounts.
+        var tasks = students
+            .Select(student => TryCreateHoldAsync(student.UserId))
             .ToArray();
 
         // Act: release all 10 requests at once.
@@ -569,8 +572,4 @@ public class AdmissionIntegrationTests
         Assert.Equal(0, classStatus.ConfirmedSeats);
         Assert.Equal(0, classStatus.AvailableSeats);
     }
-
-
-
-
 }

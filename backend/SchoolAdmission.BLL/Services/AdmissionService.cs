@@ -6,6 +6,7 @@ using SchoolAdmission.BLL.Enums;
 using SchoolAdmission.BLL.Exceptions;
 using SchoolAdmission.BLL.Interfaces;
 using SchoolAdmission.BLL.Models;
+using SchoolAdmission.BLL.Models.Auth;
 using Microsoft.Extensions.Configuration;
 
 namespace SchoolAdmission.BLL.Services;
@@ -13,13 +14,16 @@ namespace SchoolAdmission.BLL.Services;
 public class AdmissionService : IAdmissionService
 {
     private readonly IAdmissionRepository _repository;
+    private readonly IAuthService _authService;
     private readonly int _holdDurationSeconds;
 
     public AdmissionService(
         IAdmissionRepository repository,
+        IAuthService authService,
         IConfiguration configuration)
     {
         _repository = repository;
+        _authService = authService;
 
         string? configuredDuration = configuration["HOLD_DURATION_SECONDS"];
 
@@ -114,13 +118,19 @@ public class AdmissionService : IAdmissionService
 
     public async Task<CreateHoldResponse> CreateHoldAsync(
         Guid classId,
-        string studentId,
+        Guid userId,
         CancellationToken cancellationToken = default)
     {
+        AuthUserData user = await GetActiveStudentAsync(
+            userId,
+            cancellationToken);
+
+        string studentId = user.BirthRegistrationNumber ?? string.Empty;
         ValidateStudentId(studentId);
 
         HoldCreationResult result = await _repository.CreateHoldAsync(
             classId,
+            user.Id,
             studentId,
             _holdDurationSeconds,
             cancellationToken);
@@ -166,10 +176,14 @@ public class AdmissionService : IAdmissionService
 
     public async Task<HoldResponse> GetHoldByIdAsync(
         Guid holdId,
+        Guid userId,
         CancellationToken cancellationToken = default)
     {
+        await GetActiveStudentAsync(userId, cancellationToken);
+
         HoldData? hold = await _repository.GetHoldByIdAsync(
             holdId,
+            userId,
             cancellationToken);
 
         if (hold is null)
@@ -190,15 +204,15 @@ public class AdmissionService : IAdmissionService
 
     public async Task<ConfirmHoldResponse> ConfirmHoldAsync(
         Guid holdId,
-        string studentId,
+        Guid userId,
         CancellationToken cancellationToken = default)
     {
-        ValidateStudentId(studentId);
+        await GetActiveStudentAsync(userId, cancellationToken);
 
         HoldConfirmationStatus result =
             await _repository.ConfirmHoldAsync(
                 holdId,
-                studentId,
+                userId,
                 cancellationToken);
 
         switch (result)
@@ -239,15 +253,15 @@ public class AdmissionService : IAdmissionService
 
     public async Task CancelHoldAsync(
         Guid holdId,
-        string studentId,
+        Guid userId,
         CancellationToken cancellationToken = default)
     {
-        ValidateStudentId(studentId);
+        await GetActiveStudentAsync(userId, cancellationToken);
 
         HoldCancellationStatus result =
             await _repository.CancelHoldAsync(
                 holdId,
-                studentId,
+                userId,
                 cancellationToken);
 
         switch (result)
@@ -278,14 +292,14 @@ public class AdmissionService : IAdmissionService
     }
 
     public async Task<IReadOnlyList<MyHoldResponse>> GetStudentHoldsAsync(
-        string studentId,
+        Guid userId,
         CancellationToken cancellationToken = default)
     {
-        ValidateStudentId(studentId);
+        await GetActiveStudentAsync(userId, cancellationToken);
 
         IReadOnlyList<MyHoldData> holds =
             await _repository.GetStudentHoldsAsync(
-                studentId,
+                userId,
                 cancellationToken);
 
         return holds.Select(hold => new MyHoldResponse
@@ -299,6 +313,33 @@ public class AdmissionService : IAdmissionService
     }
 
     // Validation and mapping helpers
+
+    private async Task<AuthUserData> GetActiveStudentAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        AuthUserData? user = await _authService.GetCurrentUserAsync(
+            userId,
+            cancellationToken);
+
+        if (user is null)
+        {
+            throw new AdmissionException(
+                "UNAUTHENTICATED",
+                "Your account is unavailable. Please log in again.");
+        }
+
+        if (!user.Roles.Contains(
+            "Student",
+            StringComparer.OrdinalIgnoreCase))
+        {
+            throw new AdmissionException(
+                "FORBIDDEN",
+                "Only students can perform this operation.");
+        }
+
+        return user;
+    }
 
     private static void ValidateStudentId(string studentId)
     {
