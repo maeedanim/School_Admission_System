@@ -42,4 +42,12 @@ public interface IAdmissionService
     Task<IReadOnlyList<MyHoldResponse>> GetStudentHoldsAsync(
         Guid userId,
         CancellationToken cancellationToken = default);
+
+// Admin application management
+Task<IReadOnlyList<AdminApplicationResponse>> GetAllApplicationsAsync(
+    CancellationToken cancellationToken = default);
+
+
+
+
 }

@@ -7,7 +7,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
-
+using Microsoft.AspNetCore.HttpOverrides;
+using SchoolAdmission.API.Swagger;
 using SchoolAdmission.API.Middleware;
 using SchoolAdmission.API.Services.Auth;
 using SchoolAdmission.BLL.Interfaces;
@@ -59,11 +60,25 @@ builder.Services.AddSwaggerGen(options =>
         Description = "Enter your JWT access token."
     });
 
-    options.AddSecurityRequirement(document =>
-        new OpenApiSecurityRequirement
-        {
-            [new OpenApiSecuritySchemeReference("Bearer", document)] = []
-        });
+    options.OperationFilter<AuthorizeOperationFilter>();
+});
+
+// Reverse proxy configuration (Render).
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders =
+        ForwardedHeaders.XForwardedFor |
+        ForwardedHeaders.XForwardedProto;
+
+    options.ForwardLimit = 1;
+
+    // Render uses managed proxy addresses that may change.
+    // Only trust forwarded headers from the managed ingress.
+    if (builder.Environment.IsProduction())
+    {
+        options.KnownNetworks.Clear();
+        options.KnownProxies.Clear();
+    }
 });
 
 // CORS.
@@ -217,6 +232,9 @@ await InitializeDatabaseAsync(
 // --------------------------------------------------
 // HTTP Request Pipeline
 // --------------------------------------------------
+
+// Process reverse proxy headers before HTTPS redirection.
+app.UseForwardedHeaders();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 

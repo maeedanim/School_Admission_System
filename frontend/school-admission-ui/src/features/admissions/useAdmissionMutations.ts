@@ -1,3 +1,4 @@
+
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -8,12 +9,10 @@ import {
 
 interface CreateHoldVariables {
   classId: string;
-  studentId: string;
 }
 
 interface HoldActionVariables {
   holdId: string;
-  studentId: string;
 }
 
 export const useAdmissionMutations = () => {
@@ -27,20 +26,20 @@ export const useAdmissionMutations = () => {
   };
 
   const createHoldMutation = useMutation({
-    mutationFn: ({ classId, studentId }: CreateHoldVariables) =>
-      createHold(classId, studentId),
+    mutationFn: ({ classId }: CreateHoldVariables) =>
+      createHold(classId),
     onSuccess: refreshAdmissionData,
   });
 
   const confirmHoldMutation = useMutation({
-    mutationFn: ({ holdId, studentId }: HoldActionVariables) =>
-      confirmHold(holdId, studentId),
+    mutationFn: ({ holdId }: HoldActionVariables) =>
+      confirmHold(holdId),
     onSuccess: refreshAdmissionData,
   });
 
   const cancelHoldMutation = useMutation({
-    mutationFn: ({ holdId, studentId }: HoldActionVariables) =>
-      cancelHold(holdId, studentId),
+    mutationFn: ({ holdId }: HoldActionVariables) =>
+      cancelHold(holdId),
     onSuccess: refreshAdmissionData,
   });
 

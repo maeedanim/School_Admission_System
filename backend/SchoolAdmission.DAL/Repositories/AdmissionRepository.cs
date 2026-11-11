@@ -513,4 +513,48 @@ public class AdmissionRepository : IAdmissionRepository
             })
             .ToListAsync(cancellationToken);
     }
+
+
+    // Admin application management
+
+    public async Task<IReadOnlyList<AdminApplicationData>> GetAllApplicationsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        // Persist expiration for all outdated HELD applications.
+        await _context.Database.ExecuteSqlRawAsync(
+            """
+            UPDATE holds
+            SET status = 'EXPIRED'
+            WHERE status = 'HELD'
+              AND expires_at <= clock_timestamp()
+            """,
+            cancellationToken);
+
+        // Retrieve application data with associated student and class details.
+        return await _context.Holds
+            .AsNoTracking()
+            .OrderByDescending(hold => hold.CreatedAtUtc)
+            .Select(hold => new AdminApplicationData
+            {
+                ApplicationId = hold.Id,
+                StudentName = hold.User != null
+                    ? hold.User.FullName
+                    : null,
+                StudentEmail = hold.User != null
+                    ? hold.User.Email
+                    : null,
+                StudentId = hold.StudentId,
+                ClassId = hold.ClassId,
+                ClassName = hold.Class.Name,
+                Status = hold.Status,
+                CreatedAtUtc = hold.CreatedAtUtc,
+                ExpiresAtUtc = hold.ExpiresAtUtc,
+                ConfirmedAtUtc = hold.ConfirmedAtUtc,
+                CancelledAtUtc = hold.CancelledAtUtc
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+
+
 }

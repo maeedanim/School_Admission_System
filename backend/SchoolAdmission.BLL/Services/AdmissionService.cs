@@ -1,5 +1,6 @@
 ﻿
 using System.Globalization;
+using Microsoft.Extensions.Configuration;
 using SchoolAdmission.BLL.DTOs.Requests;
 using SchoolAdmission.BLL.DTOs.Responses;
 using SchoolAdmission.BLL.Enums;
@@ -7,7 +8,6 @@ using SchoolAdmission.BLL.Exceptions;
 using SchoolAdmission.BLL.Interfaces;
 using SchoolAdmission.BLL.Models;
 using SchoolAdmission.BLL.Models.Auth;
-using Microsoft.Extensions.Configuration;
 
 namespace SchoolAdmission.BLL.Services;
 
@@ -126,6 +126,7 @@ public class AdmissionService : IAdmissionService
             cancellationToken);
 
         string studentId = user.BirthRegistrationNumber ?? string.Empty;
+
         ValidateStudentId(studentId);
 
         HoldCreationResult result = await _repository.CreateHoldAsync(
@@ -309,6 +310,30 @@ public class AdmissionService : IAdmissionService
             ClassName = hold.ClassName,
             Status = hold.Status.ToString().ToUpperInvariant(),
             ExpiresAt = hold.ExpiresAtUtc
+        }).ToList();
+    }
+
+    // Admin application management
+
+    public async Task<IReadOnlyList<AdminApplicationResponse>> GetAllApplicationsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        IReadOnlyList<AdminApplicationData> applications =
+            await _repository.GetAllApplicationsAsync(cancellationToken);
+
+        return applications.Select(application => new AdminApplicationResponse
+        {
+            ApplicationId = application.ApplicationId,
+            StudentName = application.StudentName,
+            StudentEmail = application.StudentEmail,
+            StudentId = application.StudentId,
+            ClassId = application.ClassId,
+            ClassName = application.ClassName,
+            Status = application.Status.ToString().ToUpperInvariant(),
+            CreatedAt = application.CreatedAtUtc,
+            ExpiresAt = application.ExpiresAtUtc,
+            ConfirmedAt = application.ConfirmedAtUtc,
+            CancelledAt = application.CancelledAtUtc
         }).ToList();
     }
 

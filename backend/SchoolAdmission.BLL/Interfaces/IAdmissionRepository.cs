@@ -44,4 +44,7 @@ public interface IAdmissionRepository
     Task<IReadOnlyList<MyHoldData>> GetStudentHoldsAsync(
         Guid userId,
         CancellationToken cancellationToken = default);
+
+Task<IReadOnlyList<AdminApplicationData>> GetAllApplicationsAsync(
+    CancellationToken cancellationToken = default);
 }

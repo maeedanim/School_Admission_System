@@ -1,3 +1,4 @@
+
 import api from "./api";
 
 import type {
@@ -37,17 +38,11 @@ export const getClassById = async (
 
 // 4. Create a seat hold
 export const createHold = async (
-  classId: string,
-  studentId: string
+  classId: string
 ): Promise<CreateHoldResponse> => {
   const response = await api.post<CreateHoldResponse>(
     `/classes/${classId}/holds`,
-    null,
-    {
-      headers: {
-        "X-Student-Id": studentId,
-      },
-    }
+    null
   );
 
   return response.data;
@@ -63,17 +58,11 @@ export const getHoldById = async (
 
 // 6. Confirm a seat hold
 export const confirmHold = async (
-  holdId: string,
-  studentId: string
+  holdId: string
 ): Promise<ConfirmHoldResponse> => {
   const response = await api.post<ConfirmHoldResponse>(
     `/holds/${holdId}/confirm`,
-    null,
-    {
-      headers: {
-        "X-Student-Id": studentId,
-      },
-    }
+    null
   );
 
   return response.data;
@@ -81,25 +70,13 @@ export const confirmHold = async (
 
 // 7. Cancel a seat hold
 export const cancelHold = async (
-  holdId: string,
-  studentId: string
+  holdId: string
 ): Promise<void> => {
-  await api.delete(`/holds/${holdId}`, {
-    headers: {
-      "X-Student-Id": studentId,
-    },
-  });
+  await api.delete(`/holds/${holdId}`);
 };
 
 // 8. Get the current student's applications
-export const getMyHolds = async (
-  studentId: string
-): Promise<MyHold[]> => {
-  const response = await api.get<MyHold[]>("/me/holds", {
-    headers: {
-      "X-Student-Id": studentId,
-    },
-  });
-
+export const getMyHolds = async (): Promise<MyHold[]> => {
+  const response = await api.get<MyHold[]>("/me/holds");
   return response.data;
 };

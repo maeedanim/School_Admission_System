@@ -16,12 +16,9 @@ import {
 
 import { useMyHolds } from "./useMyHolds";
 import { useAdmissionMutations } from "../admissions/useAdmissionMutations";
+import { useAuth } from "../auth/AuthContext";
 import { getApiErrorMessage } from "../../utils/getApiErrorMessage";
 import type { HoldStatus } from "../../types/hold";
-
-interface MyApplicationsProps {
-  studentId: string;
-}
 
 interface ActionToast {
   type: "success" | "error";
@@ -37,14 +34,16 @@ const formatRemainingTime = (milliseconds: number): string => {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 };
 
-const MyApplications = ({ studentId }: MyApplicationsProps) => {
+const MyApplications = () => {
+  const { user } = useAuth();
+
   const {
     data: applications,
     isLoading,
     isError,
     error,
     refetch,
-  } = useMyHolds(studentId);
+  } = useMyHolds(user?.userId ?? null);
 
   const {
     confirmHoldMutation,
@@ -100,7 +99,7 @@ const MyApplications = ({ studentId }: MyApplicationsProps) => {
 
   const handleConfirm = (holdId: string) => {
     confirmHoldMutation.mutate(
-      { holdId, studentId },
+      { holdId },
       {
         onSuccess: () => {
           setActionToast({
@@ -120,7 +119,7 @@ const MyApplications = ({ studentId }: MyApplicationsProps) => {
 
   const handleCancel = (holdId: string) => {
     cancelHoldMutation.mutate(
-      { holdId, studentId },
+      { holdId },
       {
         onSuccess: () => {
           setActionToast({
@@ -141,44 +140,86 @@ const MyApplications = ({ studentId }: MyApplicationsProps) => {
   const isActionPending =
     confirmHoldMutation.isPending || cancelHoldMutation.isPending;
 
-  if (!/^[0-9]{17}$/.test(studentId)) {
-    return (
-      <div className="state-message">
-        <AlertCircle size={22} />
-        <p>Enter and save your valid student ID to view your applications.</p>
-      </div>
-    );
-  }
+  // Render notifications independently of the application-list state.
+  const actionToastElement = actionToast
+    ? createPortal(
+        <div
+          className={`toast-notification toast-${actionToast.type}`}
+          role={actionToast.type === "error" ? "alert" : "status"}
+          aria-live={actionToast.type === "error" ? "assertive" : "polite"}
+        >
+          <div className="toast-icon">
+            {actionToast.type === "success" ? (
+              <CheckCircle2 size={22} />
+            ) : (
+              <AlertCircle size={22} />
+            )}
+          </div>
+
+          <div className="toast-content">
+            <strong>
+              {actionToast.type === "success"
+                ? "Operation successful"
+                : "Operation unsuccessful"}
+            </strong>
+
+            <p>{actionToast.message}</p>
+          </div>
+
+          <button
+            type="button"
+            className="toast-close"
+            onClick={() => setActionToast(null)}
+            aria-label="Dismiss notification"
+          >
+            <X size={18} />
+          </button>
+        </div>,
+        document.body
+      )
+    : null;
 
   if (isLoading) {
     return (
-      <div className="state-message">
-        <LoaderCircle className="spin" size={24} />
-        <p>Loading your applications...</p>
-      </div>
+      <>
+        <div className="state-message">
+          <LoaderCircle className="spin" size={24} />
+          <p>Loading your applications...</p>
+        </div>
+
+        {actionToastElement}
+      </>
     );
   }
 
   if (isError) {
     return (
-      <div className="state-message error-state">
-        <AlertCircle size={22} />
-        <p>
-          {getApiErrorMessage(error, "Unable to load your applications.")}
-        </p>
-        <button type="button" onClick={() => refetch()}>
-          Try Again
-        </button>
-      </div>
+      <>
+        <div className="state-message error-state">
+          <AlertCircle size={22} />
+          <p>
+            {getApiErrorMessage(error, "Unable to load your applications.")}
+          </p>
+          <button type="button" onClick={() => refetch()}>
+            Try Again
+          </button>
+        </div>
+
+        {actionToastElement}
+      </>
     );
   }
 
   if (!applications || applications.length === 0) {
     return (
-      <div className="state-message">
-        <CreditCard size={24} />
-        <p>You haven't submitted any admission applications yet.</p>
-      </div>
+      <>
+        <div className="state-message">
+          <CreditCard size={24} />
+          <p>You haven't submitted any admission applications yet.</p>
+        </div>
+
+        {actionToastElement}
+      </>
     );
   }
 
@@ -220,7 +261,6 @@ const MyApplications = ({ studentId }: MyApplicationsProps) => {
                 </span>
               </div>
 
-              {/* Application information */}
               <div className="application-details">
                 <div className="application-detail">
                   <span>Expiry time</span>
@@ -230,7 +270,6 @@ const MyApplications = ({ studentId }: MyApplicationsProps) => {
                 </div>
               </div>
 
-              {/* Expandable technical details */}
               <details className="application-extra-details">
                 <summary>Application Details</summary>
 
@@ -260,7 +299,6 @@ const MyApplications = ({ studentId }: MyApplicationsProps) => {
                 </div>
               </details>
 
-              {/* Active hold countdown */}
               {canTakeAction && (
                 <div className="hold-countdown">
                   <Clock size={18} />
@@ -273,7 +311,6 @@ const MyApplications = ({ studentId }: MyApplicationsProps) => {
                 </div>
               )}
 
-              {/* Application status notices */}
               {effectiveStatus === "EXPIRED" && (
                 <div className="application-notice expired-notice">
                   <XCircle size={18} />
@@ -295,7 +332,6 @@ const MyApplications = ({ studentId }: MyApplicationsProps) => {
                 </div>
               )}
 
-              {/* Active hold actions */}
               {canTakeAction && (
                 <div className="application-actions">
                   <button
@@ -308,7 +344,7 @@ const MyApplications = ({ studentId }: MyApplicationsProps) => {
 
                     {confirmHoldMutation.isPending
                       ? "Processing..."
-                      : "Pay Admission Fee"}
+                      : "Confirm Admission"}
                   </button>
 
                   <button
@@ -327,43 +363,7 @@ const MyApplications = ({ studentId }: MyApplicationsProps) => {
         })}
       </div>
 
-      {/* Floating notification */}
-      {actionToast &&
-        createPortal(
-          <div
-            className={`toast-notification toast-${actionToast.type}`}
-            role={actionToast.type === "error" ? "alert" : "status"}
-            aria-live={actionToast.type === "error" ? "assertive" : "polite"}
-          >
-            <div className="toast-icon">
-              {actionToast.type === "success" ? (
-                <CheckCircle2 size={22} />
-              ) : (
-                <AlertCircle size={22} />
-              )}
-            </div>
-
-            <div className="toast-content">
-              <strong>
-                {actionToast.type === "success"
-                  ? "Operation successful"
-                  : "Operation unsuccessful"}
-              </strong>
-
-              <p>{actionToast.message}</p>
-            </div>
-
-            <button
-              type="button"
-              className="toast-close"
-              onClick={() => setActionToast(null)}
-              aria-label="Dismiss notification"
-            >
-              <X size={18} />
-            </button>
-          </div>,
-          document.body
-        )}
+      {actionToastElement}
     </>
   );
 };

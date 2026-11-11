@@ -7,11 +7,11 @@ import {
   AlertCircle,
   X,
 } from "lucide-react";
-import PageLayout from "../../components/layout/PageLayout";
-import StudentIdentity from "../../components/layout/StudentIdentity";
-import ClassList from "./ClassList";
 import { createPortal } from "react-dom";
-import { useStudentId } from "../../hooks/useStudentId";
+
+import PageLayout from "../../components/layout/PageLayout";
+import ClassList from "./ClassList";
+import { useAuth } from "../auth/AuthContext";
 import { useAdmissionMutations } from "../admissions/useAdmissionMutations";
 import { getApiErrorMessage } from "../../utils/getApiErrorMessage";
 
@@ -21,10 +21,12 @@ interface ToastNotification {
 }
 
 const ClassesPage = () => {
-  const { studentId, setStudentId, isValid } = useStudentId();
+  const { user } = useAuth();
   const { createHoldMutation } = useAdmissionMutations();
 
   const [toast, setToast] = useState<ToastNotification | null>(null);
+
+  const isStudent = user?.role === "Student";
 
   useEffect(() => {
     if (!toast) return;
@@ -37,10 +39,10 @@ const ClassesPage = () => {
   }, [toast]);
 
   const handleApply = (classId: string) => {
-    if (!isValid || createHoldMutation.isPending) return;
+    if (!isStudent || createHoldMutation.isPending) return;
 
     createHoldMutation.mutate(
-      { classId, studentId },
+      { classId },
       {
         onSuccess: () => {
           setToast({
@@ -88,31 +90,13 @@ const ClassesPage = () => {
         </div>
       </section>
 
-      <section className="dashboard-section" id="student">
-        <div className="section-heading">
-          <div>
-            <span className="section-eyebrow">STEP 01</span>
-            <h2>Identify Yourself</h2>
-            <p>
-              Enter your student identification details to continue.
-            </p>
-          </div>
-        </div>
-
-        <StudentIdentity
-          studentId={studentId}
-          onStudentIdChange={setStudentId}
-          isValid={isValid}
-        />
-      </section>
-
       <section
         className="dashboard-section"
         id="available-classes"
       >
         <div className="section-heading">
           <div>
-            <span className="section-eyebrow">STEP 02</span>
+            <span className="section-eyebrow">ADMISSIONS</span>
             <h2>Available Admission Classes</h2>
             <p>
               Choose a class to reserve your admission seat.
@@ -121,49 +105,52 @@ const ClassesPage = () => {
           </div>
         </div>
 
-        {/* Page-relative notification */}
-
-{toast &&
-  createPortal(
-    <div
-      className={`toast-notification toast-${toast.type}`}
-      role={toast.type === "error" ? "alert" : "status"}
-      aria-live={toast.type === "error" ? "assertive" : "polite"}
-    >
-      <div className="toast-icon">
-        {toast.type === "success" ? (
-          <CheckCircle2 size={22} />
-        ) : (
-          <AlertCircle size={22} />
+        {!isStudent && (
+          <p className="selection-message">
+            Student accounts are required to reserve admission seats.
+          </p>
         )}
-      </div>
 
-      <div className="toast-content">
-        <strong>
-          {toast.type === "success"
-            ? "Application submitted successfully"
-            : "Application unsuccessful"}
-        </strong>
+        {toast &&
+          createPortal(
+            <div
+              className={`toast-notification toast-${toast.type}`}
+              role={toast.type === "error" ? "alert" : "status"}
+              aria-live={toast.type === "error" ? "assertive" : "polite"}
+            >
+              <div className="toast-icon">
+                {toast.type === "success" ? (
+                  <CheckCircle2 size={22} />
+                ) : (
+                  <AlertCircle size={22} />
+                )}
+              </div>
 
-        <p>{toast.message}</p>
-      </div>
+              <div className="toast-content">
+                <strong>
+                  {toast.type === "success"
+                    ? "Application submitted successfully"
+                    : "Application unsuccessful"}
+                </strong>
 
-      <button
-        type="button"
-        className="toast-close"
-        onClick={() => setToast(null)}
-        aria-label="Dismiss notification"
-      >
-        <X size={18} />
-      </button>
-    </div>,
-    document.body
-  )}
+                <p>{toast.message}</p>
+              </div>
 
+              <button
+                type="button"
+                className="toast-close"
+                onClick={() => setToast(null)}
+                aria-label="Dismiss notification"
+              >
+                <X size={18} />
+              </button>
+            </div>,
+            document.body
+          )}
 
         <ClassList
           onApply={handleApply}
-          disabled={!isValid || createHoldMutation.isPending}
+          disabled={!isStudent || createHoldMutation.isPending}
         />
 
         {createHoldMutation.isPending && (
