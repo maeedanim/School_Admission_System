@@ -1,75 +1,102 @@
-# React + TypeScript + Vite
+﻿# School Admission System — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React and TypeScript frontend for the School Admission System.
 
-Currently, two official plugins are available:
+The application provides separate student and administrator experiences and communicates with the ASP.NET Core Web API.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Live Application
 
-## React Compiler
+- **Frontend:** https://school-admission-system-lemon.vercel.app/classes
+- **Backend API:** https://school-admission-system-t609.onrender.com
+- **Repository:** https://github.com/maeedanim/School_Admission_System
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Technology Stack
 
-## Expanding the ESLint configuration
+- React 19
+- TypeScript
+- Vite
+- React Router
+- TanStack Query
+- Axios
+- Lucide React
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Prerequisites
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- Node.js
+- npm
+- A running School Admission System backend API
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Setup
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+From this directory:
 
+```powershell
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+Create or configure `.env.development`:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```env
+VITE_API_BASE_URL=http://localhost:8080
 ```
+
+Start the development server:
+
+```powershell
+npm run dev
+```
+
+Open:
+
+http://localhost:5173
+
+## Available Scripts
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Start the Vite development server |
+| `npm run build` | Run TypeScript checks and create a production build |
+| `npm run lint` | Run ESLint |
+| `npm run preview` | Preview the production build locally |
+
+## Application Routes
+
+| Route | Access | Description |
+|---|---|---|
+| `/login` | Public | Student login |
+| `/register` | Public | Student registration |
+| `/admin/login` | Public | Administrator login |
+| `/classes` | Student and Admin | Browse classes |
+| `/my-applications` | Student | View personal applications |
+| `/admin/classes` | Admin | Manage classes |
+| `/admin/applications` | Admin | View admission applications |
+
+## API Configuration
+
+The frontend reads its API base URL from:
+
+```env
+VITE_API_BASE_URL=http://localhost:8080
+```
+
+For production, configure the variable in the Vercel project settings:
+
+```env
+VITE_API_BASE_URL=https://school-admission-system-t609.onrender.com
+```
+
+Vite embeds environment variables into the frontend build. Rebuild or redeploy after changing production environment variables.
+
+## Authentication
+
+The API returns JWT access tokens for authenticated requests. Refresh tokens are managed through an HttpOnly cookie.
+
+Requests that need the refresh cookie must use credentialed HTTP requests. The backend must allow the frontend origin through its `FRONTEND_ORIGIN` configuration and CORS policy.
+
+Frontend route protection improves navigation and user experience. Authorization is independently enforced by the backend API.
+
+## Production
+
+- Frontend: https://school-admission-system-lemon.vercel.app/classes
+- Backend API: https://school-admission-system-t609.onrender.com
+- Repository: https://github.com/maeedanim/School_Admission_System

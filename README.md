@@ -1,47 +1,92 @@
-# School Admission System
+﻿# School Admission System
 
-A high-concurrency online school admission system built with **.NET 10 (ASP.NET Core Web API)**, **PostgreSQL 17**, and **React + TypeScript**.
+A high-concurrency online school admission system built with **.NET 10, ASP.NET Core Web API, PostgreSQL 17, React 19, and TypeScript**.
 
-The system follows a First-Come, First-Served (FCFS) admission model without a lottery. Applicants can temporarily reserve a seat in a class by creating a time-limited hold. When the admission fee is confirmed within the reservation period, the seat becomes permanently confirmed. Otherwise, the expired reservation is automatically released and becomes available to another applicant.
+The system follows a First-Come, First-Served (FCFS) admission model. Students can temporarily reserve a seat in a class through a time-limited hold. A hold can be confirmed during its reservation period; otherwise, it expires and its reserved seat becomes available again.
 
 ## Live Demo
 
 - **Frontend:** https://school-admission-system-lemon.vercel.app/classes
 - **Backend API:** https://school-admission-system-t609.onrender.com
-- **API Health Check:** https://school-admission-system-t609.onrender.com/health
+- **Health Check:** https://school-admission-system-t609.onrender.com/health
 
-> The frontend is hosted on Vercel, while the backend API and PostgreSQL can also run locally through Docker Compose.
+The frontend is hosted on Vercel. The backend API and PostgreSQL can run locally using Docker Compose.
 
----
+### Demo Credentials
+
+The following demo accounts are provided for reviewers to explore the live application.
+
+| Role | Email | Password |
+|---|---|---|
+| Administrator | `admin@gmail.com` | `Admin123` |
+| Student | `student@example.com` | `Sudent123` |
+
+> These credentials are provided exclusively for demonstration and assignment evaluation. Please do not use these accounts for personal or sensitive information.
 
 ## Table of Contents
 
 - [Features](#features)
 - [Architecture and Technology Stack](#architecture-and-technology-stack)
 - [Project Structure](#project-structure)
-- [System Requirements and Business Rules](#system-requirements-and-business-rules)
+- [Business Rules](#business-rules)
+- [Authentication and Authorization](#authentication-and-authorization)
+- [Additional Enhancements (Beyond Assignment Requirements)](#additional-enhancements-beyond-assignment-requirements)
 - [Environment Configuration](#environment-configuration)
 - [Quick Start with Docker](#quick-start-with-docker)
-- [Running Locally in Development Mode](#running-locally-in-development-mode)
-- [Running Automated Tests](#running-automated-tests)
-- [API Specification](#api-specification)
+- [Local Development](#local-development)
+- [Frontend Routes](#frontend-routes)
+- [Automated Tests](#automated-tests)
+- [API Reference](#api-reference)
 - [Admission Hold Lifecycle](#admission-hold-lifecycle)
+- [Deployment](#deployment)
+- [AI Usage Documentation](#ai-usage-documentation)
+- [License](#license)
 
 ---
 
 ## Features
 
-- **Class Management:** Create classes with configurable seat capacities. Different shifts can be represented as separate classes, such as `Class 6 - Morning Shift` and `Class 6 - Day Shift`.
-- **Concurrency-Safe Seat Allocation:** Prevents overbooking through PostgreSQL transactions, row-level locking, and database constraints.
-- **Time-Limited Seat Reservations:** Applicants receive a configurable reservation period through `HOLD_DURATION_SECONDS` (default: 600 seconds).
-- **Automatic Hold Expiration:** Expired holds are released through database operations without requiring a background worker or manual intervention.
-- **Student Identification:** Uses a 17-digit student birth registration number through the `X-Student-Id` HTTP header.
-- **Duplicate Application Prevention:** A student can have at most one active hold or confirmed admission per class.
-- **Idempotent Confirmation:** Repeated confirmation requests for an already confirmed admission do not double-count seats.
-- **Admission Cancellation:** Active holds can be cancelled, releasing their reserved seats. Confirmed admissions cannot be cancelled.
-- **Real-Time Seat Availability:** The frontend periodically refreshes class availability.
-- **Live Reservation Countdown:** Applicants can monitor the remaining time on their active reservations.
-- **Persistent Storage:** PostgreSQL data survives container restarts through a Docker named volume.
+### Admission Management
+
+- Create classes with configurable seat capacities.
+- View class information and current seat availability.
+- Temporarily reserve seats using time-limited holds.
+- Confirm or cancel an active hold.
+- View a student's own admission applications.
+- Allow administrators to view admission applications.
+
+### Concurrency and Data Integrity
+
+- PostgreSQL transactions and row-level locking for competing seat reservations.
+- Database constraints to protect data integrity.
+- Prevent seat overbooking.
+- Prevent duplicate active or confirmed applications for the same student and class.
+- Idempotent confirmation and cancellation operations where supported by the business rules.
+- Automatically release expired reservations during admission operations.
+
+### Authentication and Authorization
+
+- Student registration using a 17-digit birth registration number.
+- Separate student and administrator login.
+- JWT access-token authentication.
+- Refresh-token rotation using an HttpOnly cookie.
+- Role-based authorization for student and administrator operations.
+- Administrator bootstrap configuration for initial setup.
+
+### User Experience
+
+- Periodic class availability refresh.
+- Reservation countdown.
+- Separate student and administrator interfaces.
+- Protected frontend routes based on authenticated roles.
+
+### Infrastructure
+
+- Dockerized ASP.NET Core API.
+- PostgreSQL running through Docker Compose.
+- Persistent PostgreSQL named volume.
+- EF Core migrations applied during application startup.
+- Production hosting through Render and Vercel.
 
 ---
 
@@ -56,36 +101,37 @@ The system follows a First-Come, First-Served (FCFS) admission model without a l
 | Entity Framework Core 10 | Object-relational mapping |
 | Npgsql | PostgreSQL database provider |
 | PostgreSQL 17 | Relational database |
-| Swagger / OpenAPI | API documentation during development |
+| ASP.NET Core Identity | User and role management |
+| JWT Bearer Authentication | Access-token authentication |
+| Swagger / OpenAPI | API documentation in Development |
 | xUnit | Automated integration testing |
 
 ### Three-Tier Architecture
 
-The backend follows a three-tier architecture with clear separation of responsibilities.
+The backend separates HTTP handling, business rules, and data access.
 
 **1. Presentation Layer — `SchoolAdmission.API`**
 
-- REST API controllers
-- HTTP request and response handling
-- Dependency injection
-- Middleware and exception handling
-- CORS configuration
+- REST API controllers.
+- HTTP request and response handling.
+- Authentication and authorization.
+- Dependency injection and middleware.
+- CORS configuration.
 
 **2. Business Logic Layer — `SchoolAdmission.BLL`**
 
-- Admission business rules
-- Service interfaces and implementations
-- Request and response DTOs
-- Input validation
-- Business exceptions and status handling
+- Admission business rules.
+- Service interfaces and implementations.
+- Request and response DTOs.
+- Business validation and exception handling.
 
 **3. Data Access Layer — `SchoolAdmission.DAL`**
 
-- Entity Framework Core DbContext
-- Database entities and configurations
-- Repository implementations
-- PostgreSQL queries and transactions
-- Database migrations
+- Entity Framework Core DbContext.
+- Database entities and configurations.
+- Repository implementations.
+- PostgreSQL queries and transactions.
+- EF Core migrations.
 
 ### Frontend
 
@@ -101,12 +147,11 @@ The backend follows a three-tier architecture with clear separation of responsib
 
 ### Infrastructure
 
-- Docker
-- Docker Compose
-- Multi-stage Dockerfile for the backend API
-- PostgreSQL named volume for persistent storage
-- Render for backend hosting
-- Vercel for frontend hosting
+- Docker and Docker Compose.
+- Multi-stage Dockerfile for the API.
+- PostgreSQL named volume.
+- Render for backend hosting.
+- Vercel for frontend hosting.
 
 ---
 
@@ -114,94 +159,73 @@ The backend follows a three-tier architecture with clear separation of responsib
 
 ```text
 School_Admission_System/
-│
-├── .env.example
-├── .gitignore
-├── Dockerfile
-├── docker-compose.yml
-├── README.md
-├── SchoolAdmissionSystem.sln
-│
-├── backend/
-│   ├── SchoolAdmission.API/
-│   │   ├── Controllers/
-│   │   ├── Middleware/
-│   │   └── Program.cs
-│   │
-│   ├── SchoolAdmission.BLL/
-│   │   ├── DTOs/
-│   │   ├── Enums/
-│   │   ├── Exceptions/
-│   │   ├── Interfaces/
-│   │   ├── Models/
-│   │   └── Services/
-│   │
-│   └── SchoolAdmission.DAL/
-│       ├── Data/
-│       ├── Entities/
-│       ├── Repositories/
-│       └── Migrations/
-│
-├── frontend/
-│   └── school-admission-ui/
-│       ├── public/
-│       ├── src/
-│       │   ├── app/
-│       │   ├── components/
-│       │   ├── features/
-│       │   ├── hooks/
-│       │   ├── services/
-│       │   ├── types/
-│       │   └── utils/
-│       ├── .env.example
-│       ├── package.json
-│       └── vercel.json
-│
-└── tests/
-    └── SchoolAdmission.Tests/
-        ├── AdmissionIntegrationTests.cs
-        └── PostgresTestFixture.cs
+|
+|-- .env.example
+|-- .gitignore
+|-- Dockerfile
+|-- docker-compose.yml
+|-- README.md
+|-- AI_USAGE.md
+|-- SchoolAdmissionSystem.sln
+|
+|-- backend/
+|   |-- SchoolAdmission.API/
+|   |   |-- Controllers/
+|   |   |-- Middleware/
+|   |   |-- Services/
+|   |   |-- Models/
+|   |   `-- Program.cs
+|   |
+|   |-- SchoolAdmission.BLL/
+|   |   |-- DTOs/
+|   |   |-- Enums/
+|   |   |-- Exceptions/
+|   |   |-- Interfaces/
+|   |   |-- Models/
+|   |   `-- Services/
+|   |
+|   `-- SchoolAdmission.DAL/
+|       |-- Data/
+|       |-- Entities/
+|       |-- Repositories/
+|       `-- Migrations/
+|
+|-- frontend/
+|   `-- school-admission-ui/
+|       |-- public/
+|       |-- src/
+|       |   |-- app/
+|       |   |-- assets/
+|       |   |-- components/
+|       |   |-- features/
+|       |   |-- hooks/
+|       |   |-- services/
+|       |   |-- types/
+|       |   `-- utils/
+|       |-- package.json
+|       `-- vercel.json
+|
+`-- tests/
+    `-- SchoolAdmission.Tests/
+        |-- AdmissionIntegrationTests.cs
+        `-- PostgresTestFixture.cs
 ```
 
 ---
 
-## System Requirements and Business Rules
+## Business Rules
 
-### System Requirements
-
-For Docker-based execution:
-
-- Docker Desktop
-- Docker Compose
-
-For local development:
-
-- .NET 10 SDK
-- Node.js and npm
-- Docker Desktop (for PostgreSQL)
-- Git
-
-### Business Rules
-
-1. **Seat Capacity:** A class cannot have more active reservations and confirmed admissions than its total seat capacity.
-
-2. **Reservation Duration:** A newly created hold remains active for the configured duration. The default is 600 seconds.
-
-3. **Hold Expiration:** An expired hold cannot be confirmed. Its reserved seat becomes available again.
-
-4. **Student Identification:** Student IDs must contain exactly 17 ASCII digits.
-
-5. **Duplicate Applications:** A student cannot create another active hold or confirmed admission for the same class.
-
-6. **Confirmation:** Only the student who owns an active, unexpired hold can confirm it.
-
-7. **Cancellation:** Students can cancel their own active holds. Confirmed admissions cannot be cancelled.
-
-8. **Idempotency:** Repeating a successful confirmation does not increase the confirmed seat count.
-
-9. **Concurrency:** PostgreSQL row-level locking and transactions serialize competing seat-allocation operations for the same class.
-
-10. **Persistence:** Application data remains available after API restarts and Docker container restarts.
+1. **Seat capacity:** A class cannot have more active holds and confirmed admissions than its total seat capacity.
+2. **Reservation duration:** A new hold remains active for the configured duration. The default is 600 seconds.
+3. **Expiration:** An expired hold cannot be confirmed. Its reserved seat becomes available again.
+4. **Student identification:** A student's birth registration number must contain exactly 17 ASCII digits.
+5. **Duplicate applications:** A student cannot create another active hold or confirmed admission for the same class.
+6. **Ownership:** Only the student who owns a hold can retrieve, confirm, or cancel it.
+7. **Confirmation:** Only an active, unexpired hold can be confirmed.
+8. **Cancellation:** Students can cancel their own active holds. Confirmed admissions cannot be cancelled.
+9. **Idempotency:** Repeating a successful confirmation does not increase the confirmed seat count.
+10. **Concurrency:** Database transactions and row-level locking protect seat allocation when multiple students apply concurrently.
+11. **Persistence:** PostgreSQL data is retained across container restarts through a Docker named volume.
 
 ### Admission Statuses
 
@@ -214,258 +238,330 @@ For local development:
 
 ---
 
-## Environment Configuration
+## Authentication and Authorization
 
-### 1. Backend and PostgreSQL Configuration
+The API uses JWT Bearer authentication for protected endpoints.
+
+After a successful student or administrator login:
+
+- The API returns an access token in the response body.
+- The API sets a refresh token in an HttpOnly cookie.
+- Protected API requests use the access token in the `Authorization` header.
+- The refresh endpoint rotates the refresh token and returns a new access token.
+- Logout revokes the refresh token and clears the cookie.
+
+The refresh cookie is named `school_admission_refresh` and is scoped to `/api/auth`. Refresh and logout requests must originate from the configured frontend origin.
+
+### Authorization Roles
+
+| Role | Permissions |
+|---|---|
+| Student | View classes, manage their own holds, and view their applications |
+| Admin | View classes, create classes, and view all admission applications |
+
+A student's identity is derived from the authenticated JWT claims. The API does not use a client-supplied `X-Student-Id` header to identify the applicant.
+
+---
+
+## Additional Enhancements (Beyond Assignment Requirements)
+
+All mandatory requirements specified in the original assignment have been implemented and tested.
+
+Although authentication and authorization were not mandatory requirements of the original assignment, I independently implemented these features as a learning opportunity to strengthen my understanding of authentication, authorization, and application security in ASP.NET Core.
+
+These enhancements were developed beyond the assigned scope and are not presented as mandatory assignment requirements.
+
+### 1. Authentication
+
+- Student registration (signup).
+- Student login.
+- Administrator login.
+- JWT-based authentication.
+- Secure password hashing.
+- Refresh-token rotation using an HttpOnly cookie.
+
+### 2. Role-Based Access Control (RBAC)
+
+- Introduced separate `Admin` and `Student` roles.
+- Restricted administrative operations to authorized administrators.
+- Restricted student-specific operations to authenticated students.
+- Implemented server-side role-based authorization using ASP.NET Core authorization attributes.
+- Enforced ownership checks for student-specific admission records.
+
+### 3. Additional Security Considerations
+
+- Protected API endpoints using authentication and authorization middleware.
+- Derived student identity from authenticated JWT claims instead of trusting client-supplied student identifiers.
+- Prevented unauthorized access to administrative functionality.
+- Used an HttpOnly refresh-token cookie to reduce direct JavaScript access to refresh-token values.
+
+### Design Decision
+
+These enhancements were implemented independently to explore practical authentication and authorization patterns beyond the original assignment scope.
+
+The core admission workflow and its mandatory business rules remain the primary focus of the application.
+
+---
+
+## Environment Configuration
 
 Create a root `.env` file using `.env.example` as a template.
 
-**Windows CMD:**
+**PowerShell:**
 
-```cmd
-copy .env.example .env
-```
-
-**PowerShell / Bash:**
-
-```bash
-cp .env.example .env
+```powershell
+Copy-Item .env.example .env
 ```
 
 Configure the following variables:
 
-| Variable | Description | Example |
-|---|---|---|
-| `POSTGRES_DB` | PostgreSQL database name | `school_admission` |
-| `POSTGRES_USER` | PostgreSQL username | `school_app` |
-| `POSTGRES_PASSWORD` | PostgreSQL password | Set your own password |
-| `POSTGRES_PORT` | PostgreSQL host port | `5432` |
-| `HOLD_DURATION_SECONDS` | Hold duration in seconds | `600` |
+| Variable | Description |
+|---|---|
+| `POSTGRES_DB` | PostgreSQL database name |
+| `POSTGRES_USER` | PostgreSQL username |
+| `POSTGRES_PASSWORD` | PostgreSQL password |
+| `POSTGRES_PORT` | Host port mapped to PostgreSQL |
+| `JWT_SECRET` | Base64-encoded JWT signing secret; must decode to at least 32 bytes |
+| `JWT_ISSUER` | JWT issuer |
+| `JWT_AUDIENCE` | JWT audience |
+| `ADMIN_BOOTSTRAP_FULL_NAME` | Initial administrator's name |
+| `ADMIN_BOOTSTRAP_EMAIL` | Initial administrator's email |
+| `ADMIN_BOOTSTRAP_PASSWORD` | Initial administrator's password |
+| `HOLD_DURATION_SECONDS` | Reservation duration in seconds |
+| `FRONTEND_ORIGIN` | Allowed frontend origin for refresh and logout requests |
 
-The provided Docker Compose configuration uses `600` seconds as the API hold duration.
+The supplied example uses a 600-second reservation duration.
 
-**Important:** Keep `.env` private. Never commit database passwords or other secrets to GitHub.
+### Initial Administrator
 
-### 2. Frontend Configuration
+Configure the administrator bootstrap variables when initializing an appropriate fresh database.
+
+Use a strong password and keep these values private. Do not commit credentials to source control.
+
+Do not assume that changing bootstrap variables will reset or replace an administrator in an existing database.
+
+### Frontend Environment
 
 The frontend uses Vite environment variables.
 
-Create or configure the following files inside `frontend/school-admission-ui/`.
-
-**`.env.development`**
+Development:
 
 ```env
 VITE_API_BASE_URL=http://localhost:8080
 ```
 
-**`.env.production`**
+Production:
 
 ```env
 VITE_API_BASE_URL=https://school-admission-system-t609.onrender.com
 ```
 
-**`.env.example`**
+Configure the production value in the Vercel project environment settings as well.
 
-```env
-VITE_API_BASE_URL=http://localhost:8080
-```
-
-Vite reads these variables at build time. Restart the development server after changing environment files.
+Vite reads environment variables at build time. Restart the development server after changing local environment files.
 
 ---
 
 ## Quick Start with Docker
 
-Docker Compose runs the PostgreSQL database and ASP.NET Core API together.
+Docker Compose starts PostgreSQL and the ASP.NET Core API. The frontend runs separately.
 
-The React frontend is run separately during local development or accessed through the deployed Vercel application.
+### Prerequisites
+
+- Docker Desktop with Docker Compose.
+- Git.
+- Node.js and npm (for the frontend).
+- .NET 10 SDK (for local backend development).
 
 ### 1. Clone the Repository
 
-```bash
+```powershell
 git clone https://github.com/maeedanim/School_Admission_System.git
 cd School_Admission_System
 ```
 
 ### 2. Configure Environment Variables
 
-**Windows CMD:**
-
-```cmd
-copy .env.example .env
+```powershell
+Copy-Item .env.example .env
 ```
 
-Open `.env` and configure your PostgreSQL password.
+Open `.env` and configure the database credentials, JWT secret, and other required settings.
 
 ### 3. Build and Start the Services
 
-```bash
+```powershell
 docker compose up --build -d
 ```
 
-This command:
-
-- Builds the backend API Docker image.
-- Starts PostgreSQL.
-- Waits for PostgreSQL's health check.
-- Starts the API.
-- Applies pending EF Core migrations automatically.
+This command builds the API image and starts PostgreSQL and the API. The API waits for the database health check and applies pending EF Core migrations during startup.
 
 ### 4. Verify the Containers
 
-```bash
+```powershell
 docker compose ps
 ```
 
-Both services should be running, and PostgreSQL should report a healthy status.
+PostgreSQL should report a healthy status.
 
-### 5. Access the API
+### 5. Verify the API
 
-- **Backend API:** http://localhost:8080
-- **Health Check:** http://localhost:8080/health
-- **Classes Endpoint:** http://localhost:8080/classes
+- API: http://localhost:8080
+- Health check: http://localhost:8080/health
 
-The API's Swagger UI is enabled in the Development environment.
+The health endpoint should return HTTP 200 when the application is healthy.
+
+Swagger UI is enabled only in the Development environment.
 
 ### 6. Run the Frontend
 
 Open another terminal:
 
-```bash
+```powershell
 cd frontend/school-admission-ui
 npm install
 npm run dev
 ```
 
-Open:
+Open http://localhost:5173.
 
-http://localhost:5173
+### 7. View Logs
 
-### 7. View Container Logs
+API:
 
-```bash
+```powershell
 docker compose logs -f api
 ```
 
-For PostgreSQL:
+PostgreSQL:
 
-```bash
+```powershell
 docker compose logs -f postgres
 ```
 
 ### 8. Stop the Services
 
-```bash
+```powershell
 docker compose down
 ```
 
-**Data Persistence:** Running `docker compose down` preserves the PostgreSQL named volume. Existing classes and admission records remain available when the services are started again.
+This preserves the PostgreSQL named volume.
 
-> Avoid `docker compose down -v` unless you intentionally want to delete the database volume and all stored data.
+**Warning:** Avoid `docker compose down -v` unless you intentionally want to delete the database volume and all data stored in it.
 
 ---
 
-## Running Locally in Development Mode
+## Local Development
 
-You can run the backend and frontend outside Docker while using Docker for PostgreSQL.
+You can run the API and frontend outside Docker while using Docker for PostgreSQL.
 
 ### 1. Start PostgreSQL
 
 From the repository root:
 
-```bash
+```powershell
 docker compose up -d postgres
 ```
 
-### 2. Configure the Backend Connection String
+### 2. Configure the Backend Database Connection
 
-The backend reads its database connection string from:
+The backend reads its connection string from:
 
 `ConnectionStrings:DefaultConnection`
 
-For local development, configure it through .NET User Secrets or an appropriate local environment variable.
+Use .NET User Secrets or an appropriate local environment variable to configure it.
 
-Example connection string:
+Example:
 
 ```text
 Host=localhost;Port=5434;Database=school_admission;Username=school_app;Password=YOUR_PASSWORD
 ```
 
-Use the host port configured in your root `.env` file. For example, the port above assumes `POSTGRES_PORT=5434`.
+Use the host port and credentials configured in your local `.env` file. The example above assumes `POSTGRES_PORT=5434`.
 
 ### 3. Run the Backend
 
 From the repository root:
 
-```bash
+```powershell
 dotnet run --project backend/SchoolAdmission.API/SchoolAdmission.API.csproj --urls http://localhost:8080
 ```
 
-The API applies pending database migrations during application startup.
-
-Backend URL:
-
-http://localhost:8080
+The application applies pending database migrations during startup.
 
 ### 4. Run the Frontend
 
-Open another terminal:
+In another terminal:
 
-```bash
+```powershell
 cd frontend/school-admission-ui
 npm install
 npm run dev
 ```
 
-Frontend URL:
-
-http://localhost:5173
+Frontend URL: http://localhost:5173
 
 ---
 
-## Running Automated Tests
+## Frontend Routes
 
-The project includes PostgreSQL integration tests covering admission operations, business rules, expiration handling, idempotency, and concurrent seat reservations.
+| Route | Access | Purpose |
+|---|---|---|
+| `/login` | Public | Student login |
+| `/register` | Public | Student registration |
+| `/admin/login` | Public | Administrator login |
+| `/classes` | Student and Admin | Browse classes |
+| `/my-applications` | Student | View personal applications |
+| `/admin/classes` | Admin | Manage classes |
+| `/admin/applications` | Admin | View admission applications |
 
-### 1. Prepare the Test Database
+The frontend uses protected routes to restrict access based on the authenticated user's role. The API independently enforces authorization; frontend route protection is not a replacement for backend security.
 
-Create a separate PostgreSQL database for testing:
+---
+
+## Automated Tests
+
+The project includes PostgreSQL integration tests for admission operations, business rules, expiration handling, idempotency, and concurrent seat reservations.
+
+### 1. Prepare a Separate Test Database
+
+Create a dedicated PostgreSQL database:
 
 ```sql
 CREATE DATABASE school_admission_test;
 ```
 
-The tests must use a separate database from the application's development database.
+Never point integration tests at a database containing data you need to preserve.
 
 ### 2. Configure the Test Connection String
 
-Set the `TEST_DATABASE_CONNECTION_STRING` environment variable to point to the test database.
+Set `TEST_DATABASE_CONNECTION_STRING` to the test database connection string.
 
-Example Windows CMD command:
+PowerShell example:
 
-```cmd
-set TEST_DATABASE_CONNECTION_STRING=Host=localhost;Port=5434;Database=school_admission_test;Username=school_app;Password=YOUR_PASSWORD
+```powershell
+$env:TEST_DATABASE_CONNECTION_STRING = "Host=localhost;Port=5434;Database=school_admission_test;Username=school_app;Password=YOUR_PASSWORD"
 ```
 
-Use your actual PostgreSQL host port and credentials.
+Use your actual database credentials and host port.
 
 ### 3. Run the Tests
 
 From the repository root:
 
-```bash
+```powershell
 dotnet test
 ```
 
 For detailed output:
 
-```bash
+```powershell
 dotnet test --logger "console;verbosity=detailed"
 ```
 
 ### Integration Test Coverage
 
-The test suite includes 12 PostgreSQL integration tests covering:
+The existing test suite contains 12 PostgreSQL integration tests covering:
 
 - Class creation and seat initialization.
 - Seat-capacity enforcement.
@@ -480,24 +576,20 @@ The test suite includes 12 PostgreSQL integration tests covering:
 - Expired hold cancellation rejection.
 - Concurrent seat reservation without overselling.
 
-### Concurrency Test Guarantee
+### Concurrency Test
 
-The concurrency integration test sends 10 simultaneous hold requests for a class with only 3 seats.
+The concurrency integration test submits 10 simultaneous hold requests for a class with 3 available seats.
 
 It verifies that:
 
 - Exactly 3 requests successfully reserve seats.
-- The remaining 7 requests are rejected with `409 Conflict`.
-- No more than 3 seats are held or confirmed.
+- The remaining 7 requests receive `409 Conflict`.
+- The class does not exceed its configured capacity.
 - The invariant `heldSeats + confirmedSeats <= totalSeats` is maintained.
 
 ---
 
-## API Specification
-
-All endpoints use JSON request and response bodies.
-
-Student-specific endpoints require the applicant's 17-digit birth registration number in the `X-Student-Id` HTTP header, except `GET /holds/{holdId}`, which does not require a student header.
+## API Reference
 
 ### Base URLs
 
@@ -513,33 +605,154 @@ Production:
 https://school-admission-system-t609.onrender.com
 ```
 
-### Endpoints Overview
+All endpoints use JSON where a request or response body is applicable.
 
-| # | Method | Endpoint | Description | Student Header |
-|---|---|---|---|---|
-| 1 | `POST` | `/classes` | Create a class | No |
-| 2 | `GET` | `/classes` | List classes and seat availability | No |
-| 3 | `GET` | `/classes/{classId}` | Get class details | No |
-| 4 | `POST` | `/classes/{classId}/holds` | Create a seat hold | Yes |
-| 5 | `GET` | `/holds/{holdId}` | Get hold status | No |
-| 6 | `POST` | `/holds/{holdId}/confirm` | Confirm admission | Yes |
-| 7 | `DELETE` | `/holds/{holdId}` | Cancel an active hold | Yes |
-| 8 | `GET` | `/me/holds` | Get the current student's applications | Yes |
+### Endpoint Overview
 
-### Student Header Example
+| Method | Endpoint | Access |
+|---|---|---|
+| POST | `/api/auth/student/register` | Public |
+| POST | `/api/auth/student/login` | Public |
+| POST | `/api/auth/admin/login` | Public |
+| POST | `/api/auth/refresh` | Refresh cookie and allowed origin |
+| POST | `/api/auth/logout` | Refresh cookie and allowed origin |
+| GET | `/api/auth/me` | Authenticated |
+| GET | `/classes` | Student or Admin |
+| GET | `/classes/{classId}` | Student or Admin |
+| POST | `/classes` | Admin |
+| POST | `/classes/{classId}/holds` | Student |
+| GET | `/holds/{holdId}` | Student |
+| POST | `/holds/{holdId}/confirm` | Student |
+| DELETE | `/holds/{holdId}` | Student |
+| GET | `/me/holds` | Student |
+| GET | `/admin/applications` | Admin |
+
+### Authentication Header
+
+Protected endpoints require:
 
 ```http
-X-Student-Id: 20152691234567890
+Authorization: Bearer YOUR_ACCESS_TOKEN
 ```
 
-The ID must contain exactly 17 digits.
+Use the access token returned by the login or refresh endpoint.
 
-### 1. Create a Class
+### 1. Register a Student
+
+**Request**
+
+```http
+POST /api/auth/student/register
+Content-Type: application/json
+```
+
+```json
+{
+  "fullName": "Example Student",
+  "email": "student@example.com",
+  "password": "StrongPassword123",
+  "confirmPassword": "StrongPassword123",
+  "birthRegistrationNumber": "20152691234567890"
+}
+```
+
+The birth registration number must contain exactly 17 digits.
+
+**Response — `201 Created`**
+
+The response includes a success message, the new user ID, full name, and email.
+
+Duplicate email or birth registration numbers return `409 Conflict`.
+
+### 2. Student Login
+
+**Request**
+
+```http
+POST /api/auth/student/login
+Content-Type: application/json
+```
+
+```json
+{
+  "email": "student@example.com",
+  "password": "StrongPassword123"
+}
+```
+
+**Response — `200 OK`**
+
+The response contains:
+
+- `accessToken`
+- `expiresAtUtc`
+- `userId`
+- `fullName`
+- `email`
+- `role`
+
+The refresh token is set separately as an HttpOnly cookie.
+
+### 3. Administrator Login
+
+**Request**
+
+```http
+POST /api/auth/admin/login
+Content-Type: application/json
+```
+
+```json
+{
+  "email": "admin@example.com",
+  "password": "StrongPassword123"
+}
+```
+
+The response uses the same authentication response structure as student login, with the administrator role.
+
+### 4. Refresh Access Token
+
+**Request**
+
+```http
+POST /api/auth/refresh
+```
+
+The browser must send the refresh cookie and an allowed `Origin` header. A successful response contains a new access token and rotates the refresh token cookie.
+
+An invalid or expired refresh token returns `401 Unauthorized`.
+
+### 5. Logout
+
+**Request**
+
+```http
+POST /api/auth/logout
+```
+
+The browser must send the refresh cookie and an allowed `Origin` header.
+
+The API revokes the refresh token and clears the cookie.
+
+### 6. Get Current User
+
+**Request**
+
+```http
+GET /api/auth/me
+Authorization: Bearer YOUR_ACCESS_TOKEN
+```
+
+Returns the authenticated user's ID, name, email, birth registration number, and roles.
+
+### 7. Create a Class
 
 **Request**
 
 ```http
 POST /classes
+Authorization: Bearer ADMIN_ACCESS_TOKEN
 Content-Type: application/json
 ```
 
@@ -560,12 +773,15 @@ Content-Type: application/json
 }
 ```
 
-### 2. Get All Classes
+Only administrators can create classes.
+
+### 8. Get All Classes
 
 **Request**
 
 ```http
 GET /classes
+Authorization: Bearer YOUR_ACCESS_TOKEN
 ```
 
 **Response — `200 OK`**
@@ -583,23 +799,24 @@ GET /classes
 ]
 ```
 
-### 3. Get Class Details
+### 9. Get Class Details
 
 **Request**
 
 ```http
 GET /classes/{classId}
+Authorization: Bearer YOUR_ACCESS_TOKEN
 ```
 
 Returns the class information and current seat breakdown.
 
-### 4. Create a Seat Hold
+### 10. Create a Seat Hold
 
 **Request**
 
 ```http
 POST /classes/{classId}/holds
-X-Student-Id: 20152691234567890
+Authorization: Bearer STUDENT_ACCESS_TOKEN
 ```
 
 **Response — `201 Created`**
@@ -608,20 +825,23 @@ X-Student-Id: 20152691234567890
 {
   "holdId": "8b2d1be9-801d-4163-a538-977870d6f166",
   "classId": "b30f36d1-3f0c-4ce2-9b2c-23fd8e1324a5",
-  "studentId": "20152691234567890",
+  "studentId": "00000000-0000-0000-0000-000000000000",
   "status": "HELD",
   "expiresAt": "2026-11-10T12:00:00Z"
 }
 ```
 
-A `409 Conflict` response is returned if no seats are available or the student already has an active application for that class.
+The `studentId` is the authenticated user's ID. The example GUID and timestamps are illustrative.
 
-### 5. Get Hold Status
+A `409 Conflict` response can occur when no seats are available or the student already has an active application for that class.
+
+### 11. Get Hold Status
 
 **Request**
 
 ```http
 GET /holds/{holdId}
+Authorization: Bearer STUDENT_ACCESS_TOKEN
 ```
 
 **Response — `200 OK`**
@@ -635,15 +855,15 @@ GET /holds/{holdId}
 }
 ```
 
-No student header is required for this endpoint.
+The authenticated student must own the requested hold.
 
-### 6. Confirm Admission
+### 12. Confirm Admission
 
 **Request**
 
 ```http
 POST /holds/{holdId}/confirm
-X-Student-Id: 20152691234567890
+Authorization: Bearer STUDENT_ACCESS_TOKEN
 ```
 
 **Response — `200 OK`**
@@ -655,81 +875,124 @@ X-Student-Id: 20152691234567890
 }
 ```
 
-Confirmation is only allowed for the owner of an active, unexpired hold.
+Only the owner of an active, unexpired hold can confirm it. Repeated successful confirmation requests are idempotent.
 
-Repeated confirmation requests are idempotent.
+This project simulates admission confirmation; it does not integrate with an actual payment gateway.
 
-> This project simulates admission-fee confirmation. It does not integrate with an actual payment gateway.
-
-### 7. Cancel a Hold
+### 13. Cancel a Hold
 
 **Request**
 
 ```http
 DELETE /holds/{holdId}
-X-Student-Id: 20152691234567890
+Authorization: Bearer STUDENT_ACCESS_TOKEN
 ```
 
 **Response — `204 No Content`**
 
 Cancellation releases the reserved seat. Confirmed admissions cannot be cancelled.
 
-### 8. Get My Applications
+### 14. Get My Applications
 
 **Request**
 
 ```http
 GET /me/holds
-X-Student-Id: 20152691234567890
+Authorization: Bearer STUDENT_ACCESS_TOKEN
 ```
 
-**Response — `200 OK`**
+Returns the authenticated student's applications, including class name, status, and expiration information.
 
-```json
-[
-  {
-    "holdId": "8b2d1be9-801d-4163-a538-977870d6f166",
-    "classId": "b30f36d1-3f0c-4ce2-9b2c-23fd8e1324a5",
-    "className": "Class 6 - Morning Shift",
-    "status": "CONFIRMED",
-    "expiresAt": "2026-11-10T12:00:00Z"
-  }
-]
+### 15. Get All Applications
+
+**Request**
+
+```http
+GET /admin/applications
+Authorization: Bearer ADMIN_ACCESS_TOKEN
 ```
+
+Returns admission application information for administrator review.
 
 ---
 
 ## Admission Hold Lifecycle
 
 ```text
-        Applicant applies
-               |
-               v
-        +-------------+
-        |    HELD     |
-        +-------------+
-          /         \
-         /           \
- Payment confirmed   Reservation expires
-       |                     |
-       v                     v
- +-------------+      +-------------+
- |  CONFIRMED  |      |   EXPIRED   |
- +-------------+      +-------------+
+                 Student applies
+                       |
+                       v
+                 +-----------+
+                 |   HELD    |
+                 +-----------+
+                   /       \
+                  /         \
+       Confirmed /           \ Reservation expires
+                /             \
+               v               v
+        +-----------+     +-----------+
+        | CONFIRMED |     |  EXPIRED  |
+        +-----------+     +-----------+
 
-       HELD
-         |
-         | Applicant cancels
-         v
-   +-------------+
-   |  CANCELLED  |
-   +-------------+
+                 HELD
+                   |
+                   | Student cancels
+                   v
+              +-----------+
+              | CANCELLED |
+              +-----------+
 ```
 
-The system ensures that a seat is never allocated beyond its configured capacity, even when multiple applicants submit requests concurrently.
+The system uses database-level concurrency control to prevent seat allocation beyond the configured class capacity.
+
+---
+
+## Deployment
+
+### Backend — Render
+
+The backend is deployed at:
+
+https://school-admission-system-t609.onrender.com
+
+The backend requires the production database connection string and the appropriate JWT and frontend-origin configuration.
+
+### Frontend — Vercel
+
+The frontend is deployed at:
+
+https://school-admission-system-lemon.vercel.app
+
+Configure `VITE_API_BASE_URL` as a Vercel environment variable with the production backend URL.
+
+The backend's `FRONTEND_ORIGIN` must match the frontend's origin:
+
+```text
+https://school-admission-system-lemon.vercel.app
+```
+
+Use the origin only; do not append `/classes`.
+
+### Production Notes
+
+- Never commit `.env` files or production credentials.
+- Use strong, unique JWT and database secrets.
+- Keep the PostgreSQL database persistent.
+- Do not expose administrator bootstrap credentials.
+- Swagger is configured for Development, not Production.
+- The API health endpoint is `/health`.
+
+---
+
+## AI Usage Documentation
+
+For transparency, the project includes a separate document describing how AI assistance supported development.
+
+See [AI_USAGE.md](./AI_USAGE.md).
 
 ---
 
 ## License
 
-This project was developed as a software engineering assignment demonstrating backend architecture, REST API development, relational database design, concurrency control, automated integration testing, and containerized deployment.
+This project was developed as a software engineering assignment demonstrating backend architecture, REST API development, relational database design, authentication, concurrency control, automated integration testing, and containerized deployment.
+

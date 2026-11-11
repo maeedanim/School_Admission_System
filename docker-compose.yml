@@ -1,17 +1,16 @@
-
-services:
+﻿services:
   postgres:
     image: postgres:17-alpine
     container_name: school-admission-postgres
     restart: unless-stopped
 
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
 
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-5434}:5432"
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -43,12 +42,16 @@ services:
 
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
 
-      Jwt__Secret: ${JWT_SECRET}
-      Jwt__Issuer: ${JWT_ISSUER}
-      Jwt__Audience: ${JWT_AUDIENCE}
+      Jwt__Secret: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      Jwt__Issuer: ${JWT_ISSUER:?Set JWT_ISSUER in .env}
+      Jwt__Audience: ${JWT_AUDIENCE:?Set JWT_AUDIENCE in .env}
 
-      HOLD_DURATION_SECONDS: "600"
-      FRONTEND_ORIGIN: "http://localhost:5173"
+      AdminBootstrap__FullName: ${ADMIN_BOOTSTRAP_FULL_NAME:-}
+      AdminBootstrap__Email: ${ADMIN_BOOTSTRAP_EMAIL:-}
+      AdminBootstrap__Password: ${ADMIN_BOOTSTRAP_PASSWORD:-}
+
+      HOLD_DURATION_SECONDS: ${HOLD_DURATION_SECONDS:-600}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:5173}
 
     ports:
       - "8080:8080"
