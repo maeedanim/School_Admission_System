@@ -6,7 +6,7 @@ The system follows a First-Come, First-Served (FCFS) admission model. Students c
 
 ## Live Demo
 
-- **Frontend:** https://school-admission-system-lemon.vercel.app/classes
+- **Frontend:** https://school-admission-system-lemon.vercel.app/
 - **Backend API:** https://school-admission-system-t609.onrender.com
 - **Health Check:** https://school-admission-system-t609.onrender.com/health
 
